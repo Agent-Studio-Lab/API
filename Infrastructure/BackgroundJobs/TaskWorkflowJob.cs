@@ -133,13 +133,13 @@ public sealed class TaskWorkflowJob
         var defaultExecutor = analysisAgents.FirstOrDefault();
 
         var consensusPlan = new ConsensusPlan(
-            primaryExecutorId: defaultExecutor?.Id ?? Guid.Empty,
-            primaryExecutorName: defaultExecutor?.Name ?? "Athena",
-            testerId: defaultTester?.Id ?? Guid.Empty,
-            testerName: defaultTester?.Name ?? "Valeria",
-            executionPlanSummary: "Kế hoạch đã được thẩm định đồng thuận bởi Phòng Phân tích và Phòng Kế hoạch.",
-            requiresHiring: proposedHiring is not null,
-            proposedHire: proposedHiring);
+            PrimaryExecutorId: defaultExecutor?.Id ?? Guid.Empty,
+            PrimaryExecutorName: defaultExecutor?.Name ?? "Athena",
+            TesterId: defaultTester?.Id ?? Guid.Empty,
+            TesterName: defaultTester?.Name ?? "Valeria",
+            ExecutionPlanSummary: "Kế hoạch đã được thẩm định đồng thuận bởi Phòng Phân tích và Phòng Kế hoạch.",
+            RequiresHiring: proposedHiring is not null,
+            ProposedHire: proposedHiring);
 
         ticket.SetConsensusPlan(consensusPlan);
         await _taskTicketRepository.UpdateAsync(ticket, cancellationToken);

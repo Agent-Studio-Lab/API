@@ -1,6 +1,7 @@
 using API.Application.Features.Tasks.Commands.ApproveHiring;
 using API.Application.Features.Tasks.Commands.ExecuteTask;
 using API.Application.Features.Tasks.Commands.FinalDecision;
+using API.Application.Features.Tasks.Queries.GetTaskById;
 using API.Presentation.Common;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
@@ -23,6 +24,14 @@ public sealed class TasksController : ControllerBase
     {
         var command = new ExecuteTaskCommand(request);
         var result = await _sender.Send(command, cancellationToken);
+        return result.ToActionResult();
+    }
+
+    [HttpGet("{id:guid}")]
+    public async Task<IActionResult> GetTaskById(Guid id, CancellationToken cancellationToken)
+    {
+        var query = new GetTaskByIdQuery(id);
+        var result = await _sender.Send(query, cancellationToken);
         return result.ToActionResult();
     }
 

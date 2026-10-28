@@ -2,7 +2,7 @@ namespace API.Domain.Common;
 
 public abstract class Entity
 {
-    public Guid Id { get; set; } = Guid.CreateVersion7();
+    public Guid Id { get; private set; } = Guid.CreateVersion7();
     public DateTime CreatedAt { get; protected set; }
     public string? CreatedBy { get; protected set; }
     public DateTime? UpdatedAt { get; protected set; }
