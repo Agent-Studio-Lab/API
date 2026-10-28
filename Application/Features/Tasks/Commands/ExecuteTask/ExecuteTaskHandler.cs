@@ -28,19 +28,15 @@ public sealed class ExecuteTaskHandler : ICommandHandler<ExecuteTaskCommand, Exe
 
     public async Task<Result<ExecuteTaskResponse>> Handle(ExecuteTaskCommand command, CancellationToken cancellationToken)
     {
-        var prompt = command.Request.Prompt?.Trim();
-        if (string.IsNullOrWhiteSpace(prompt))
-        {
-            return Result<ExecuteTaskResponse>.Failure(400, "Đề bài không được để trống!");
-        }
-
         var agents = await _agentRepository.GetAllAsync(cancellationToken);
         if (agents.Count == 0)
         {
             return Result<ExecuteTaskResponse>.Failure(400, "Công ty hiện tại chưa có nhân sự nào trong văn phòng.");
         }
 
+        var prompt = command.Request.Prompt.Trim();
         var title = prompt.Length > 50 ? prompt[..47] + "..." : prompt;
+
         var ticket = new TaskTicket(
             title,
             prompt,
@@ -54,7 +50,6 @@ public sealed class ExecuteTaskHandler : ICommandHandler<ExecuteTaskCommand, Exe
             OfficeEvent.CreatePhaseChanged(TaskPhase.Debating, $"Đã tiếp nhận nhiệm vụ: '{title}'. Toàn thể nhân sự văn phòng bắt đầu phiên họp bàn tròn tranh luận!"),
             cancellationToken);
 
-        // Kích hoạt qua Application Abstraction (không phụ thuộc Hangfire)
         _workflowQueue.EnqueueStep(ticket.Id);
 
         return Result<ExecuteTaskResponse>.Success(new ExecuteTaskResponse(
