@@ -7,7 +7,7 @@ namespace API.Domain.Entities;
 public sealed class Agent : AggregateRoot
 {
     public string Name { get; private set; }
-    public string Avatar { get; private set; }
+    public string? Avatar { get; private set; }
     public string RoleTitle { get; private set; }
     public string Department { get; private set; }
     public string SystemPrompt { get; private set; }
@@ -23,7 +23,7 @@ public sealed class Agent : AggregateRoot
 
     public Agent(
         string name,
-        string avatar,
+        string? avatar,
         string roleTitle,
         string department,
         string systemPrompt,
@@ -49,7 +49,7 @@ public sealed class Agent : AggregateRoot
 
     public static Agent CreateContractor(
         string name,
-        string avatar,
+        string? avatar,
         HiringProposal proposal,
         ModelConfig modelConfig)
     {

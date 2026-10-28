@@ -23,7 +23,7 @@ public sealed record DebateTurnResponse(
     Guid Id,
     Guid AgentId,
     string AgentName,
-    string AgentAvatar,
+    string? AgentAvatar,
     int RoundNumber,
     string Statement,
     DateTime CreatedAt);

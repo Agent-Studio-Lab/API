@@ -19,7 +19,6 @@ public sealed class AgentConfiguration : IEntityTypeConfiguration<Agent>
             .HasMaxLength(100);
 
         builder.Property(x => x.Avatar)
-            .IsRequired()
             .HasMaxLength(500);
 
         builder.Property(x => x.RoleTitle)

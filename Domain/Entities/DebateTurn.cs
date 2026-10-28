@@ -7,7 +7,7 @@ public sealed class DebateTurn : Entity
     public Guid TaskTicketId { get; private set; }
     public Guid AgentId { get; private set; }
     public string AgentName { get; private set; }
-    public string AgentAvatar { get; private set; }
+    public string? AgentAvatar { get; private set; }
     public int RoundNumber { get; private set; }
     public string Statement { get; private set; }
 
@@ -15,7 +15,7 @@ public sealed class DebateTurn : Entity
         Guid taskTicketId,
         Guid agentId,
         string agentName,
-        string agentAvatar,
+        string? agentAvatar,
         int roundNumber,
         string statement,
         Guid? id = null) : base(id)

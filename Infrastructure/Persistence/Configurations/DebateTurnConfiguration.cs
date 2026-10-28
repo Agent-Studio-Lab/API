@@ -17,7 +17,6 @@ public sealed class DebateTurnConfiguration : IEntityTypeConfiguration<DebateTur
             .HasMaxLength(100);
 
         builder.Property(x => x.AgentAvatar)
-            .IsRequired()
             .HasMaxLength(500);
 
         builder.Property(x => x.Statement)

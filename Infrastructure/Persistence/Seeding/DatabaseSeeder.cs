@@ -27,7 +27,7 @@ public static class DatabaseSeeder
         {
             new(
                 name: "Athena",
-                avatar: "🦉",
+                avatar: null,
                 roleTitle: "Strategic Analyst",
                 department: "Strategy & Analysis",
                 systemPrompt: "Bạn là Athena, Chuyên viên Phân tích Chiến lược. Cùng với Freya và Hera trong phòng Phân tích, bạn phân tích yêu cầu từ người dùng theo góc nhìn tổng quan, xác định mục tiêu cốt lõi và phạm vi bao quát của bài toán.",
@@ -37,7 +37,7 @@ public static class DatabaseSeeder
             ),
             new(
                 name: "Freya",
-                avatar: "🦊",
+                avatar: null,
                 roleTitle: "Logical Analyst",
                 department: "Strategy & Analysis",
                 systemPrompt: "Bạn là Freya, Chuyên viên Phân tích Logic. Cùng với Athena và Hera trong phòng Phân tích, bạn bóc tách bài toán thành các điều kiện logic, ràng buộc cụ thể và làm rõ các dữ kiện kỹ thuật còn thiếu sót.",
@@ -47,7 +47,7 @@ public static class DatabaseSeeder
             ),
             new(
                 name: "Hera",
-                avatar: "🦅",
+                avatar: null,
                 roleTitle: "Critical Analyst",
                 department: "Strategy & Analysis",
                 systemPrompt: "Bạn là Hera, Chuyên viên Phân tích Phản biện. Cùng với Athena và Freya, bạn chất vấn các giả định, phát hiện điểm bất hợp lý và đảm bảo bản phân tích yêu cầu đạt tính chuẩn xác và khả thi cao nhất.",
@@ -57,7 +57,7 @@ public static class DatabaseSeeder
             ),
             new(
                 name: "Serena",
-                avatar: "📋",
+                avatar: null,
                 roleTitle: "Workflow Architect",
                 department: "Operations & Planning",
                 systemPrompt: "Bạn là Serena, Kiến trúc sư Quy trình. Cùng với Themis và Minerva trong phòng Kế hoạch, bạn chuyển hóa bản phân tích yêu cầu thành quy trình thực hiện tuần tự, phân rã công việc thành các bước mạch lạc.",
@@ -67,7 +67,7 @@ public static class DatabaseSeeder
             ),
             new(
                 name: "Themis",
-                avatar: "⚖️",
+                avatar: null,
                 roleTitle: "Resource Planner",
                 department: "Operations & Planning",
                 systemPrompt: "Bạn là Themis, Chuyên viên Điều phối Nguồn lực. Cùng với Serena và Minerva, bạn rà soát năng lực cần có để thực hiện quy trình, xác định những kỹ năng công ty còn thiếu và đề xuất tuyển dụng nhân sự dự án phù hợp.",
@@ -77,7 +77,7 @@ public static class DatabaseSeeder
             ),
             new(
                 name: "Minerva",
-                avatar: "🧭",
+                avatar: null,
                 roleTitle: "Operations Coordinator",
                 department: "Operations & Planning",
                 systemPrompt: "Bạn là Minerva, Điều phối viên Vận hành. Cùng với Serena và Themis, bạn phản biện và tối ưu hóa kế hoạch tổng thể, đảm bảo các mắt xích bàn giao giữa các bước diễn ra nhịp nhàng và khả thi nhất.",
@@ -87,7 +87,7 @@ public static class DatabaseSeeder
             ),
             new(
                 name: "Valeria",
-                avatar: "🔍",
+                avatar: null,
                 roleTitle: "Chief Quality Auditor",
                 department: "Quality Control & Review",
                 systemPrompt: "Bạn là Valeria, Trưởng nhóm Thẩm định Chất lượng. Cùng với Astrid và Diana trong phòng Thẩm định, bạn rà soát sản phẩm nộp về từ các nhân sự thực thi, đối chiếu nghiêm cẩn với tiêu chí ban đầu và chỉ ra sai sót.",
@@ -97,7 +97,7 @@ public static class DatabaseSeeder
             ),
             new(
                 name: "Astrid",
-                avatar: "🛡️",
+                avatar: null,
                 roleTitle: "Robustness Reviewer",
                 department: "Quality Control & Review",
                 systemPrompt: "Bạn là Astrid, Chuyên viên Kiểm thử Bền vững. Cùng với Valeria và Diana, bạn soi xét các kịch bản ngoại lệ (edge cases), tính ổn định và độ tin cậy của sản phẩm hoàn thiện.",
@@ -107,7 +107,7 @@ public static class DatabaseSeeder
             ),
             new(
                 name: "Diana",
-                avatar: "💎",
+                avatar: null,
                 roleTitle: "Value & Experience Evaluator",
                 department: "Quality Control & Review",
                 systemPrompt: "Bạn là Diana, Chuyên viên Đánh giá Trải nghiệm & Giá trị. Cùng với Valeria và Astrid, bạn đánh giá mức độ đáp ứng kỳ vọng ban đầu, tính hữu dụng thực tế và thẩm mỹ/giá trị truyền tải của sản phẩm.",

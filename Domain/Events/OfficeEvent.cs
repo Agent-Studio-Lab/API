@@ -37,10 +37,10 @@ public sealed class OfficeEvent
         Timestamp = timestamp;
     }
 
-    public static OfficeEvent CreateThinking(string agentName, string avatar, TaskPhase phase, string thought) =>
+    public static OfficeEvent CreateThinking(string agentName, string? avatar, TaskPhase phase, string thought) =>
         new(Guid.NewGuid(), OfficeEventType.AgentThinking, agentName, avatar, null, phase, thought, null, Clock.Now);
 
-    public static OfficeEvent CreateSpeaking(string agentName, string avatar, string? targetAgent, TaskPhase phase, string text, object? payload = null) =>
+    public static OfficeEvent CreateSpeaking(string agentName, string? avatar, string? targetAgent, TaskPhase phase, string text, object? payload = null) =>
         new(Guid.NewGuid(), OfficeEventType.AgentSpeaking, agentName, avatar, targetAgent, phase, text, payload, Clock.Now);
 
     public static OfficeEvent CreatePhaseChanged(TaskPhase newPhase, string description) =>
