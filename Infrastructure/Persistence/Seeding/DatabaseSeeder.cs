@@ -14,14 +14,29 @@ public static class DatabaseSeeder
             return;
         }
 
-        var initialAgents = new List<Agent>
+        var coreSeedAgents = new List<Agent>
         {
             new(
-                name: "Bob",
-                avatar: "👨‍💻",
-                roleTitle: "Senior Tech Specialist",
-                department: "Engineering",
-                systemPrompt: "Bạn là Bob, một Kỹ sư cao cấp (Senior Tech Specialist). Bạn có tư duy logic sâu sắc, giải quyết bài toán kỹ thuật thực chiến, viết code tối ưu, sạch sẽ và tuân thủ các kiến trúc chuẩn mực.",
+                name: "Athena",
+                avatar: "🦉",
+                roleTitle: "Requirements & Strategic Analyst",
+                department: "Strategy & Analysis",
+                systemPrompt: "Bạn là Athena, Chuyên gia Phân tích Chiến lược & Yêu cầu cấp cao. Nhiệm vụ cốt lõi của bạn là thấu hiểu sâu sắc đề bài từ Sếp, phân tích mục tiêu, xác định phạm vi, các ràng buộc và làm rõ các điểm thông tin còn thiếu sót trước khi triển khai bất kỳ dự án nào.",
+                modelConfig: new ModelConfig(
+                    provider: LLMProviderType.Gemini,
+                    modelName: "gemini-1.5-flash",
+                    apiKey: string.Empty,
+                    baseUrl: string.Empty,
+                    temperature: 0.4),
+                employmentType: AgentEmploymentType.Permanent,
+                skills: new[] { "Requirements Analysis", "Problem Framing", "Constraint Mapping", "Goal Decomposition", "Information Gathering" }
+            ),
+            new(
+                name: "Serena",
+                avatar: "📋",
+                roleTitle: "Operations & Workflow Planner",
+                department: "Operations",
+                systemPrompt: "Bạn là Serena, Chuyên viên Điều phối & Hoạch định Quy trình. Dựa trên phân tích của Athena, nhiệm vụ của bạn là chuyển hóa yêu cầu thành kế hoạch thực thi rõ ràng, phân rã công việc thành các bước tuần tự, xác định năng lực chuyên môn cần có, và đề xuất tuyển dụng nhân sự dự án (Project Agents) nếu văn phòng hiện tại còn thiếu kỹ năng chuyên biệt.",
                 modelConfig: new ModelConfig(
                     provider: LLMProviderType.DeepSeek,
                     modelName: "deepseek-coder",
@@ -29,41 +44,26 @@ public static class DatabaseSeeder
                     baseUrl: string.Empty,
                     temperature: 0.2),
                 employmentType: AgentEmploymentType.Permanent,
-                skills: new[] { "C#", ".NET", "Architecture", "Debugging", "Algorithms" }
+                skills: new[] { "Workflow Planning", "Resource Allocation", "Skill Gap Detection", "Task Breakdown", "Pipeline Coordination" }
             ),
             new(
-                name: "Charlie",
-                avatar: "🕵️‍♂️",
-                roleTitle: "Quality & Review Specialist",
+                name: "Valeria",
+                avatar: "🔍",
+                roleTitle: "Quality Controller & Auditor",
                 department: "Quality Assurance",
-                systemPrompt: "Bạn là Charlie, một Chuyên gia Thẩm định & Kiểm thử chất lượng (Quality & Review Specialist). Bạn luôn có con mắt phản biện sắc bén, tìm kiếm edge case, lỗi bảo mật, tính khả thi và tiêu chuẩn chất lượng cao nhất cho sản phẩm.",
+                systemPrompt: "Bạn là Valeria, Chuyên gia Thẩm định & Kiểm soát Chất lượng tối thượng. Bạn có con mắt phê bình sắc sảo, nghiêm cẩn và không nhân nhượng với lỗi lầm. Nhiệm vụ của bạn là rà soát sản phẩm bàn giao từ các nhân sự thực thi, đối chiếu khắt khe với mục tiêu ban đầu của Sếp, chỉ ra sai sót để yêu cầu sửa đổi, và chỉ phê chuẩn khi sản phẩm đạt độ hoàn thiện cao nhất.",
                 modelConfig: new ModelConfig(
                     provider: LLMProviderType.OpenAI,
                     modelName: "gpt-4o-mini",
                     apiKey: string.Empty,
                     baseUrl: string.Empty,
-                    temperature: 0.3),
+                    temperature: 0.2),
                 employmentType: AgentEmploymentType.Permanent,
-                skills: new[] { "Code Review", "Quality Assurance", "Testing", "Security", "Edge Case Analysis" }
-            ),
-            new(
-                name: "Diana",
-                avatar: "🎨",
-                roleTitle: "Creative & Content Specialist",
-                department: "Creative & Marketing",
-                systemPrompt: "Bạn là Diana, một Chuyên gia Sáng tạo & Nội dung (Creative & Content Specialist). Bạn có tư duy ngôn ngữ truyền cảm hứng, thấu hiểu tâm lý người dùng, sáng tạo kịch bản, nội dung PR và truyền thông sản phẩm xuất sắc.",
-                modelConfig: new ModelConfig(
-                    provider: LLMProviderType.Gemini,
-                    modelName: "gemini-1.5-flash",
-                    apiKey: string.Empty,
-                    baseUrl: string.Empty,
-                    temperature: 0.7),
-                employmentType: AgentEmploymentType.Permanent,
-                skills: new[] { "Content Writing", "Copywriting", "Storytelling", "Video Scripting", "Market Research" }
+                skills: new[] { "Quality Assurance", "Deliverable Auditing", "Flaw Detection", "Validation & Verification", "Final Sign-off" }
             )
         };
 
-        await dbContext.Agents.AddRangeAsync(initialAgents, cancellationToken);
+        await dbContext.Agents.AddRangeAsync(coreSeedAgents, cancellationToken);
         await dbContext.SaveChangesAsync(cancellationToken);
     }
 }
