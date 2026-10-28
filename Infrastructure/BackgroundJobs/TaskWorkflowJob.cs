@@ -50,7 +50,7 @@ public sealed class TaskWorkflowJob
                 break;
 
             default:
-                _logger.LogInformation("TaskTicket {TicketId} đang ở trạng thái {Phase}, chờ can thiệp/phê duyệt từ Sếp.", ticketId, ticket.CurrentPhase);
+                _logger.LogInformation("TaskTicket {TicketId} is in phase {Phase}, awaiting user approval or intervention.", ticketId, ticket.CurrentPhase);
                 break;
         }
     }
@@ -60,12 +60,11 @@ public sealed class TaskWorkflowJob
         var analysisAgents = await _agentRepository.GetByDepartmentAsync("Strategy & Analysis", cancellationToken);
         var planningAgents = await _agentRepository.GetByDepartmentAsync("Operations & Planning", cancellationToken);
 
-        // --- BƯỚC 1: PHÒNG PHÂN TÍCH (STRATEGY & ANALYSIS) THẢO LUẬN & PHẢN BIỆN ---
         var analysisSummary = new List<string>();
         foreach (var agent in analysisAgents)
         {
             var provider = _llmFactory.GetProvider(agent.ModelConfig.Provider);
-            var prompt = $"Đề tài từ Sếp:\n\"{ticket.Description}\"\n\nHãy phân tích đề tài dưới góc độ chuyên môn của bạn ({agent.RoleTitle}) và nêu rõ mục tiêu cũng như các điểm lưu ý.";
+            var prompt = $"Yêu cầu từ người dùng:\n\"{ticket.Description}\"\n\nHãy phân tích yêu cầu dưới góc độ chuyên môn của bạn ({agent.RoleTitle}) và nêu rõ mục tiêu cũng như các điểm lưu ý.";
             var response = await provider.GenerateResponseAsync(agent.ModelConfig, agent.SystemPrompt, prompt, cancellationToken);
 
             var turn = new DebateTurn(ticket.Id, agent.Id, agent.Name, agent.Avatar, roundNumber: 1, response);
@@ -147,7 +146,6 @@ public sealed class TaskWorkflowJob
 
         if (consensusPlan.RequiresHiring && proposedHiring is not null)
         {
-            // Bắn sự kiện hỏi Sếp duyệt tuyển dụng
             await _eventPublisher.PublishAsync(
                 OfficeEventExtensions.CreateHiringRequested(
                     proposedHiring.RoleTitle,
@@ -180,7 +178,7 @@ public sealed class TaskWorkflowJob
         // --- BƯỚC 1: EXECUTOR THỰC HIỆN SẢN PHẨM ---
         var executorProvider = _llmFactory.GetProvider(executor.ModelConfig.Provider);
         var execPrompt = $"""
-            Đề tài ban đầu từ Sếp:
+            Yêu cầu ban đầu từ người dùng:
             "{ticket.Description}"
 
             Hãy bắt tay vào triển khai và hoàn thành sản phẩm hoàn chỉnh nhất theo đúng vai trò chuyên môn của bạn ({executor.RoleTitle}).
@@ -190,7 +188,7 @@ public sealed class TaskWorkflowJob
 
         var deliverable = new TaskDeliverable(
             ticket.Id,
-            title: $"{ticket.Title} - Bản bàn giao hoàn thiện",
+            title: $"{ticket.Title} - Deliverable",
             contentType: "markdown",
             content: deliverableContent,
             createdByAgentId: executor.Id);
@@ -202,7 +200,6 @@ public sealed class TaskWorkflowJob
                 "Tôi đã hoàn thiện xong sản phẩm theo yêu cầu. Kính mời Phòng Thẩm định & Kiểm soát Chất lượng tiến hành rà soát!"),
             cancellationToken);
 
-        // --- BƯỚC 2: PHÒNG THẨM ĐỊNH (3 NÀNG VALERIA, ASTRID, DIANA) CÙNG RÀ SOÁT ---
         ticket.StartTesting();
         var reviewPassed = true;
 
@@ -210,7 +207,7 @@ public sealed class TaskWorkflowJob
         {
             var reviewerProvider = _llmFactory.GetProvider(reviewer.ModelConfig.Provider);
             var reviewPrompt = $"""
-                Đề tài của Sếp:
+                Yêu cầu của người dùng:
                 "{ticket.Description}"
 
                 Sản phẩm nộp về từ {executor.Name}:

@@ -25,15 +25,12 @@ public static class DatabaseSeeder
 
         var coreSeedAgents = new List<Agent>
         {
-            // ==========================================
-            // PHÒNG 1: PHÂN TÍCH CHIẾN LƯỢC & YÊU CẦU (STRATEGY & ANALYSIS)
-            // ==========================================
             new(
                 name: "Athena",
                 avatar: "🦉",
                 roleTitle: "Strategic Analyst",
                 department: "Strategy & Analysis",
-                systemPrompt: "Bạn là Athena, Chuyên viên Phân tích Chiến lược. Cùng với Freya và Hera trong phòng Phân tích, bạn phân tích đề bài từ Sếp theo góc nhìn tổng quan, xác định mục tiêu cốt lõi và phạm vi bao quát của bài toán.",
+                systemPrompt: "Bạn là Athena, Chuyên viên Phân tích Chiến lược. Cùng với Freya và Hera trong phòng Phân tích, bạn phân tích yêu cầu từ người dùng theo góc nhìn tổng quan, xác định mục tiêu cốt lõi và phạm vi bao quát của bài toán.",
                 modelConfig: new ModelConfig(defaultProvider, defaultModel, defaultApiKey, defaultBaseUrl),
                 employmentType: AgentEmploymentType.Permanent,
                 skills: new[] { "Strategic Analysis", "Goal Decomposition", "Scope Definition", "Departmental Debate" }
@@ -58,10 +55,6 @@ public static class DatabaseSeeder
                 employmentType: AgentEmploymentType.Permanent,
                 skills: new[] { "Critical Inquiry", "Risk Detection", "Assumption Testing", "Departmental Debate" }
             ),
-
-            // ==========================================
-            // PHÒNG 2: KẾ HOẠCH & ĐIỀU PHỐI QUY TRÌNH (OPERATIONS & PLANNING)
-            // ==========================================
             new(
                 name: "Serena",
                 avatar: "📋",
@@ -92,10 +85,6 @@ public static class DatabaseSeeder
                 employmentType: AgentEmploymentType.Permanent,
                 skills: new[] { "Operational Coordination", "Process Feasibility", "Execution Review", "Departmental Debate" }
             ),
-
-            // ==========================================
-            // PHÒNG 3: THẨM ĐỊNH & KIỂM SOÁT CHẤT LƯỢNG (QUALITY CONTROL & REVIEW)
-            // ==========================================
             new(
                 name: "Valeria",
                 avatar: "🔍",
@@ -121,7 +110,7 @@ public static class DatabaseSeeder
                 avatar: "💎",
                 roleTitle: "Value & Experience Evaluator",
                 department: "Quality Control & Review",
-                systemPrompt: "Bạn là Diana, Chuyên viên Đánh giá Trải nghiệm & Giá trị. Cùng với Valeria và Astrid, bạn đánh giá mức độ đáp ứng kỳ vọng của Sếp, tính hữu dụng thực tế và thẩm mỹ/giá trị truyền tải của sản phẩm.",
+                systemPrompt: "Bạn là Diana, Chuyên viên Đánh giá Trải nghiệm & Giá trị. Cùng với Valeria và Astrid, bạn đánh giá mức độ đáp ứng kỳ vọng ban đầu, tính hữu dụng thực tế và thẩm mỹ/giá trị truyền tải của sản phẩm.",
                 modelConfig: new ModelConfig(defaultProvider, defaultModel, defaultApiKey, defaultBaseUrl),
                 employmentType: AgentEmploymentType.Permanent,
                 skills: new[] { "User Experience Evaluation", "Practical Value Assessment", "Final Sign-off", "Departmental Debate" }

@@ -12,9 +12,9 @@ public static class OfficeEventExtensions
             eventType: OfficeEventType.AgentSpeaking,
             agentName: "Themis",
             agentAvatar: "⚖️",
-            targetAgentName: "Sếp (User)",
+            targetAgentName: "User",
             phase: TaskPhase.WaitingHiringApproval,
-            message: $"Báo cáo Sếp: Phòng Kế hoạch đã họp bàn và nhận thấy dự án này cần chuyên môn sâu về '{roleTitle}' thuộc phòng ban '{department}'. Hiện công ty chưa có nhân sự đáp ứng, kính đề nghị Sếp xem xét phê duyệt tuyển dụng!",
+            message: $"Phòng Kế hoạch đề xuất tuyển dụng nhân sự dự án cho vai trò '{roleTitle}' thuộc phòng ban '{department}'. Lý do: {justification}. Kính mời Người dùng phê duyệt.",
             payload: new
             {
                 roleTitle,
@@ -32,9 +32,9 @@ public static class OfficeEventExtensions
             eventType: OfficeEventType.AgentSpeaking,
             agentName: "Valeria",
             agentAvatar: "🔍",
-            targetAgentName: "Sếp (User)",
+            targetAgentName: "User",
             phase: TaskPhase.WaitingFinalApproval,
-            message: "Báo cáo Sếp: Phòng Thẩm định đã kiểm thử và nghiệm thu sản phẩm đạt chuẩn 100%. Kính mời Sếp duyệt nghiệm thu và quyết định nhân sự dự án!",
+            message: "Phòng Thẩm định đã kiểm thử và xác nhận sản phẩm đạt chuẩn chất lượng. Kính mời Người dùng nghiệm thu sản phẩm.",
             payload: new
             {
                 ticketId,
