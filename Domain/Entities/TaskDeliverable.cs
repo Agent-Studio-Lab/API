@@ -16,7 +16,6 @@ public sealed class TaskDeliverable : Entity
         string contentType,
         string content,
         Guid createdByAgentId,
-        string createdByAgentName,
         Guid? id = null) : base(id)
     {
         TaskTicketId = taskTicketId;
@@ -24,6 +23,5 @@ public sealed class TaskDeliverable : Entity
         ContentType = contentType;
         Content = content;
         CreatedByAgentId = createdByAgentId;
-        SetCreated(Clock.Now, createdByAgentName);
     }
 }

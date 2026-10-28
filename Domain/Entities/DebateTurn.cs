@@ -26,6 +26,5 @@ public sealed class DebateTurn : Entity
         AgentAvatar = agentAvatar;
         RoundNumber = roundNumber;
         Statement = statement;
-        SetCreated(Clock.Now, agentName);
     }
 }

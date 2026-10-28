@@ -32,6 +32,5 @@ public sealed class ExecutionTurn : Entity
         Content = content;
         IsIssueFound = isIssueFound;
         IssueDetails = issueDetails;
-        SetCreated(Clock.Now, speakerName);
     }
 }
