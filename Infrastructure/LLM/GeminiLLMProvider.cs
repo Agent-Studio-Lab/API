@@ -31,24 +31,28 @@ public sealed class GeminiLLMProvider : ILLMProvider
 
         var url = $"{baseUrl}/v1beta/models/{model}:generateContent?key={apiKey}";
 
-        var requestBody = new
+        var requestBody = new Dictionary<string, object>
         {
-            system_instruction = new
+            ["system_instruction"] = new
             {
                 parts = new[] { new { text = systemPrompt } }
             },
-            contents = new[]
+            ["contents"] = new[]
             {
                 new
                 {
                     parts = new[] { new { text = userPrompt } }
                 }
-            },
-            generationConfig = new
-            {
-                temperature = config.Temperature
             }
         };
+
+        if (config.Temperature.HasValue)
+        {
+            requestBody["generationConfig"] = new
+            {
+                temperature = config.Temperature.Value
+            };
+        }
 
         var json = JsonSerializer.Serialize(requestBody);
         using var request = new HttpRequestMessage(HttpMethod.Post, url)

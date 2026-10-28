@@ -7,4 +7,4 @@ public sealed record ModelConfig(
     string ModelName,
     string? ApiKey = null,
     string? BaseUrl = null,
-    double Temperature = 0.7);
+    double? Temperature = null);

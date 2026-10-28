@@ -27,16 +27,20 @@ public sealed class OpenAILikeLLMProvider : ILLMProvider
         var endpoint = ResolveEndpoint(config);
         var apiKey = config.ApiKey;
 
-        var requestBody = new
+        var requestBody = new Dictionary<string, object>
         {
-            model = config.ModelName,
-            messages = new object[]
+            ["model"] = config.ModelName,
+            ["messages"] = new object[]
             {
                 new { role = "system", content = systemPrompt },
                 new { role = "user", content = userPrompt }
-            },
-            temperature = config.Temperature
+            }
         };
+
+        if (config.Temperature.HasValue)
+        {
+            requestBody["temperature"] = config.Temperature.Value;
+        }
 
         using var request = new HttpRequestMessage(HttpMethod.Post, endpoint);
         if (!string.IsNullOrWhiteSpace(apiKey))
