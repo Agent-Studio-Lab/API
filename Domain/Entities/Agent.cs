@@ -58,7 +58,9 @@ public sealed class Agent : AggregateRoot
             avatar: avatar,
             roleTitle: proposal.RoleTitle,
             department: proposal.Department,
-            systemPrompt: $"Bạn là {name}, đảm nhiệm vai trò {proposal.RoleTitle}. Bạn có trách nhiệm giải quyết yêu cầu dự án theo đúng kỹ năng chuyên môn: {proposal.RequiredSkill}.",
+            systemPrompt: !string.IsNullOrWhiteSpace(proposal.DraftSystemPrompt)
+                ? proposal.DraftSystemPrompt
+                : $"Bạn là {name}, đảm nhiệm vai trò {proposal.RoleTitle}. Bạn có trách nhiệm giải quyết yêu cầu dự án theo đúng kỹ năng chuyên môn: {proposal.RequiredSkill}.",
             modelConfig: modelConfig,
             employmentType: AgentEmploymentType.Contractor,
             skills: new[] { proposal.RequiredSkill });

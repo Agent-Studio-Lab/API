@@ -127,7 +127,14 @@ public sealed class TaskWorkflowJob
             }
         }
 
-        // --- BƯỚC 3: TỔNG HỢP KẾ HOẠCH ĐỒNG THUẬN (CONSENSUS PLAN) ---
+        // --- BƯỚC 3: PHÒNG TUYỂN DỤNG & THẨM ĐỊNH AI (TALENT & MODEL INTELLIGENCE) ---
+        // Nếu phát hiện lỗ hổng kỹ năng, phòng Tuyển dụng AI sẽ khảo sát benchmark, thiết kế system prompt và tối ưu chi phí
+        if (proposedHiring is not null)
+        {
+            proposedHiring = await ExecuteTalentIntelligenceEvaluationAsync(ticket, proposedHiring, combinedAnalysis, cancellationToken);
+        }
+
+        // --- BƯỚC 4: TỔNG HỢP KẾ HOẠCH ĐỒNG THUẬN (CONSENSUS PLAN) ---
         var reviewAgents = await _agentRepository.GetByDepartmentAsync("Quality Control & Review", cancellationToken);
         var defaultTester = reviewAgents.FirstOrDefault();
         var defaultExecutor = analysisAgents.FirstOrDefault();
@@ -137,7 +144,7 @@ public sealed class TaskWorkflowJob
             PrimaryExecutorName: defaultExecutor?.Name ?? "Athena",
             TesterId: defaultTester?.Id ?? Guid.Empty,
             TesterName: defaultTester?.Name ?? "Valeria",
-            ExecutionPlanSummary: "Kế hoạch đã được thẩm định đồng thuận bởi Phòng Phân tích và Phòng Kế hoạch.",
+            ExecutionPlanSummary: "Kế hoạch đã được thẩm định đồng thuận bởi các phòng ban chuyên môn.",
             RequiresHiring: proposedHiring is not null,
             ProposedHire: proposedHiring);
 
@@ -151,7 +158,10 @@ public sealed class TaskWorkflowJob
                     proposedHiring.RoleTitle,
                     proposedHiring.Department,
                     proposedHiring.RequiredSkill,
-                    proposedHiring.Justification),
+                    proposedHiring.Justification,
+                    proposedHiring.RecommendedProvider,
+                    proposedHiring.RecommendedModel,
+                    proposedHiring.ModelBenchmarkRationale),
                 cancellationToken);
         }
         else
@@ -245,6 +255,85 @@ public sealed class TaskWorkflowJob
                 OfficeEventExtensions.CreateWaitingFinalApproval(ticket.Id, ticket.Title),
                 cancellationToken);
         }
+    }
+
+    private async Task<HiringProposal> ExecuteTalentIntelligenceEvaluationAsync(
+        TaskTicket ticket,
+        HiringProposal rawProposal,
+        string taskAnalysis,
+        CancellationToken cancellationToken)
+    {
+        var talentAgents = await _agentRepository.GetByDepartmentAsync("Talent & Model Intelligence", cancellationToken);
+        if (talentAgents.Count == 0)
+        {
+            return rawProposal;
+        }
+
+        string recommendedProvider = "DeepSeek";
+        string recommendedModel = "deepseek-reasoner";
+        string rationale = "Vượt trội về khả năng suy luận logic chuyên sâu với chi phí tối ưu.";
+        string draftPrompt = $"Bạn là chuyên gia {rawProposal.RoleTitle}. Bạn có trách nhiệm thực hiện chính xác các yêu cầu chuyên môn: {rawProposal.RequiredSkill}.";
+
+        foreach (var agent in talentAgents)
+        {
+            var provider = _llmFactory.GetProvider(agent.ModelConfig.Provider);
+            var prompt = $$"""
+                Bản phân tích bài toán từ Phòng Phân tích:
+                {{taskAnalysis}}
+
+                Phòng Kế hoạch yêu cầu tuyển dụng nhân sự cho vai trò: {{rawProposal.RoleTitle}}
+                Kỹ năng chuyên môn cần có: {{rawProposal.RequiredSkill}}
+                Lý do yêu cầu: {{rawProposal.Justification}}
+
+                Dưới góc độ chuyên môn của bạn ({{agent.RoleTitle}}), hãy đánh giá và phản hồi:
+                - Nếu bạn là Iris (Benchmark Evaluator): Phân tích model AI nào là tối ưu nhất cho kỹ năng này.
+                - Nếu bạn là Clio (Prompt Architect): Soạn thảo system prompt chuyên sâu nhất cho vai trò này.
+                - Nếu bạn là Selene (Cost & Efficiency): Cân đối chi phí, tốc độ và đưa ra JSON đề xuất hoàn chỉnh sau:
+                {
+                  "RecommendedProvider": "Tên Provider (OpenAI/Anthropic/DeepSeek/Gemini/Groq/Ollama)",
+                  "RecommendedModel": "Tên Model chính xác",
+                  "ModelBenchmarkRationale": "Lý do chọn model này dựa trên năng lực vượt trội",
+                  "DraftSystemPrompt": "System Prompt hoàn chỉnh cho nhân sự mới"
+                }
+                """;
+
+            var response = await provider.GenerateResponseAsync(agent.ModelConfig, agent.SystemPrompt, prompt, cancellationToken);
+            ticket.AddDebateTurn(new DebateTurn(ticket.Id, agent.Id, agent.Name, agent.Avatar, roundNumber: 3, response));
+
+            await _eventPublisher.PublishAsync(
+                OfficeEvent.CreateSpeaking(agent.Name, agent.Avatar, "Phòng Tuyển dụng AI", TaskPhase.Debating, response),
+                cancellationToken);
+
+            try
+            {
+                var cleanJson = ExtractJson(response);
+                if (!string.IsNullOrWhiteSpace(cleanJson) && cleanJson.Contains("RecommendedModel"))
+                {
+                    using var doc = JsonDocument.Parse(cleanJson);
+                    var root = doc.RootElement;
+                    if (root.TryGetProperty("RecommendedProvider", out var pProp) && pProp.GetString() is { } p)
+                        recommendedProvider = p;
+                    if (root.TryGetProperty("RecommendedModel", out var mProp) && mProp.GetString() is { } m)
+                        recommendedModel = m;
+                    if (root.TryGetProperty("ModelBenchmarkRationale", out var rProp) && rProp.GetString() is { } r)
+                        rationale = r;
+                    if (root.TryGetProperty("DraftSystemPrompt", out var sProp) && sProp.GetString() is { } s)
+                        draftPrompt = s;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning("Không parse được JSON từ {AgentName}: {Error}", agent.Name, ex.Message);
+            }
+        }
+
+        return rawProposal with
+        {
+            RecommendedProvider = recommendedProvider,
+            RecommendedModel = recommendedModel,
+            ModelBenchmarkRationale = rationale,
+            DraftSystemPrompt = draftPrompt
+        };
     }
 
     private static string ExtractJson(string text)
