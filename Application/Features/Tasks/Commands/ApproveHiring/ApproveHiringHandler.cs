@@ -4,8 +4,6 @@ using API.Domain.Common;
 using API.Domain.Entities;
 using API.Domain.Enums;
 using API.Domain.ValueObjects;
-using API.Infrastructure.BackgroundJobs;
-using Hangfire;
 
 namespace API.Application.Features.Tasks.Commands.ApproveHiring;
 
@@ -13,16 +11,16 @@ public sealed class ApproveHiringHandler : ICommandHandler<ApproveHiringCommand,
 {
     private readonly ITaskTicketRepository _taskTicketRepository;
     private readonly IAgentRepository _agentRepository;
-    private readonly IBackgroundJobClient _backgroundJobClient;
+    private readonly ITaskWorkflowQueue _workflowQueue;
 
     public ApproveHiringHandler(
         ITaskTicketRepository taskTicketRepository,
         IAgentRepository agentRepository,
-        IBackgroundJobClient backgroundJobClient)
+        ITaskWorkflowQueue workflowQueue)
     {
         _taskTicketRepository = taskTicketRepository;
         _agentRepository = agentRepository;
-        _backgroundJobClient = backgroundJobClient;
+        _workflowQueue = workflowQueue;
     }
 
     public async Task<Result<bool>> Handle(ApproveHiringCommand command, CancellationToken cancellationToken)
@@ -40,23 +38,17 @@ public sealed class ApproveHiringHandler : ICommandHandler<ApproveHiringCommand,
 
         var req = command.Request;
         var proposal = ticket.PendingHiring;
+        var modelConfig = new ModelConfig(req.Provider, req.ModelName, req.ApiKey, req.BaseUrl);
 
-        var newAgent = new Agent(
-            name: req.Name,
-            avatar: req.Avatar,
-            roleTitle: proposal.RoleTitle,
-            department: proposal.Department,
-            systemPrompt: $"Bạn là {req.Name}, đảm nhiệm vai trò {proposal.RoleTitle}. Bạn có trách nhiệm giải quyết yêu cầu dự án theo đúng kỹ năng chuyên môn: {proposal.RequiredSkill}.",
-            modelConfig: new ModelConfig(req.Provider, req.ModelName, req.ApiKey, req.BaseUrl),
-            employmentType: AgentEmploymentType.Contractor,
-            skills: new[] { proposal.RequiredSkill });
-
+        // Sử dụng Domain Factory Method
+        var newAgent = Agent.CreateContractor(req.Name, req.Avatar, proposal, modelConfig);
         await _agentRepository.AddAsync(newAgent, cancellationToken);
 
         ticket.ApproveHiring(newAgent.Id);
         await _taskTicketRepository.UpdateAsync(ticket, cancellationToken);
 
-        _backgroundJobClient.Enqueue<TaskWorkflowJob>(job => job.ProcessTaskStepAsync(ticket.Id, CancellationToken.None));
+        // Kích hoạt qua Application Abstraction (không phụ thuộc Hangfire)
+        _workflowQueue.EnqueueStep(ticket.Id);
 
         return Result<bool>.Success(true);
     }

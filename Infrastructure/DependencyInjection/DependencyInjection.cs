@@ -48,6 +48,7 @@ public static class DependencyInjection
 
         services.AddHangfireServer();
         services.AddScoped<TaskWorkflowJob>();
+        services.AddScoped<ITaskWorkflowQueue, HangfireTaskWorkflowQueue>();
 
         return services;
     }

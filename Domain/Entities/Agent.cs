@@ -47,6 +47,23 @@ public sealed class Agent : AggregateRoot
         }
     }
 
+    public static Agent CreateContractor(
+        string name,
+        string avatar,
+        HiringProposal proposal,
+        ModelConfig modelConfig)
+    {
+        return new Agent(
+            name: name,
+            avatar: avatar,
+            roleTitle: proposal.RoleTitle,
+            department: proposal.Department,
+            systemPrompt: $"Bạn là {name}, đảm nhiệm vai trò {proposal.RoleTitle}. Bạn có trách nhiệm giải quyết yêu cầu dự án theo đúng kỹ năng chuyên môn: {proposal.RequiredSkill}.",
+            modelConfig: modelConfig,
+            employmentType: AgentEmploymentType.Contractor,
+            skills: new[] { proposal.RequiredSkill });
+    }
+
     public void UpdateStatus(string status)
     {
         Status = status;
@@ -60,6 +77,16 @@ public sealed class Agent : AggregateRoot
     public void PromoteToPermanent()
     {
         EmploymentType = AgentEmploymentType.Permanent;
+    }
+
+    public void DismissContractor()
+    {
+        if (EmploymentType != AgentEmploymentType.Contractor)
+        {
+            throw new InvalidOperationException("Chỉ có thể kết thúc hợp đồng đối với nhân sự dự án.");
+        }
+
+        SetDeleted(Clock.Now, "System");
     }
 
     public void AddSkill(string skill)

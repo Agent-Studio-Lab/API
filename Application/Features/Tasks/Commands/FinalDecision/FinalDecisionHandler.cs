@@ -31,7 +31,7 @@ public sealed class FinalDecisionHandler : ICommandHandler<FinalDecisionCommand,
             return Result<bool>.Failure(400, "Nhiệm vụ chưa ở giai đoạn chờ nghiệm thu cuối cùng.");
         }
 
-        // Xử lý nhân sự dự án nếu có
+        // Xử lý nghiệp vụ nhân sự dự án hoàn toàn qua Domain methods
         if (ticket.RecruitedAgentId.HasValue)
         {
             var agent = await _agentRepository.GetByIdAsync(ticket.RecruitedAgentId.Value, cancellationToken);
@@ -40,13 +40,13 @@ public sealed class FinalDecisionHandler : ICommandHandler<FinalDecisionCommand,
                 if (command.Request.RetainAgentAsPermanent)
                 {
                     agent.PromoteToPermanent();
-                    await _agentRepository.UpdateAsync(agent, cancellationToken);
                 }
                 else
                 {
-                    agent.SetDeleted(Clock.Now, "System");
-                    await _agentRepository.UpdateAsync(agent, cancellationToken);
+                    agent.DismissContractor();
                 }
+
+                await _agentRepository.UpdateAsync(agent, cancellationToken);
             }
         }
 
