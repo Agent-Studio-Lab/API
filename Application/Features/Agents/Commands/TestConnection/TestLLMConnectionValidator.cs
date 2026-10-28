@@ -13,7 +13,9 @@ public sealed class TestLLMConnectionValidator : AbstractValidator<TestLLMConnec
 
         RuleFor(x => x.Request.ApiKey)
             .NotEmpty()
-            .When(x => x.Request.Provider != LLMProviderType.Mock && x.Request.Provider != LLMProviderType.Ollama)
+            .When(x => x.Request.Provider != LLMProviderType.Mock &&
+                       x.Request.Provider != LLMProviderType.Ollama &&
+                       x.Request.Provider != LLMProviderType.CustomOpenAI)
             .WithMessage("API Key không được để trống đối với nhà cung cấp này.");
     }
 }

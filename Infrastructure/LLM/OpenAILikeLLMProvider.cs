@@ -27,7 +27,7 @@ public sealed class OpenAILikeLLMProvider : ILLMProvider
     {
         var endpoint = ResolveEndpoint(config);
         var apiKey = config.ApiKey;
-        if (string.IsNullOrWhiteSpace(apiKey) && ProviderType != LLMProviderType.Ollama)
+        if (string.IsNullOrWhiteSpace(apiKey) && ProviderType != LLMProviderType.Ollama && ProviderType != LLMProviderType.CustomOpenAI)
         {
             return await new MockLLMProvider(ProviderType).GenerateResponseAsync(config, systemPrompt, userPrompt, cancellationToken);
         }
@@ -51,6 +51,12 @@ public sealed class OpenAILikeLLMProvider : ILLMProvider
         if (!string.IsNullOrWhiteSpace(apiKey))
         {
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+        }
+
+        if (ProviderType == LLMProviderType.OpenRouter)
+        {
+            request.Headers.TryAddWithoutValidation("HTTP-Referer", "https://agentstudio.lab");
+            request.Headers.TryAddWithoutValidation("X-Title", "Agent Studio");
         }
 
         var json = JsonSerializer.Serialize(requestBody);
@@ -80,7 +86,7 @@ public sealed class OpenAILikeLLMProvider : ILLMProvider
         ModelConfig config,
         CancellationToken cancellationToken = default)
     {
-        if (ProviderType != LLMProviderType.Ollama && string.IsNullOrWhiteSpace(config.ApiKey))
+        if (ProviderType != LLMProviderType.Ollama && ProviderType != LLMProviderType.CustomOpenAI && string.IsNullOrWhiteSpace(config.ApiKey))
         {
             return Result<bool>.Failure(400, $"API Key của {ProviderType} không được để trống khi xác thực kết nối.");
         }
@@ -108,6 +114,12 @@ public sealed class OpenAILikeLLMProvider : ILLMProvider
             if (!string.IsNullOrWhiteSpace(config.ApiKey))
             {
                 request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", config.ApiKey);
+            }
+
+            if (ProviderType == LLMProviderType.OpenRouter)
+            {
+                request.Headers.TryAddWithoutValidation("HTTP-Referer", "https://agentstudio.lab");
+                request.Headers.TryAddWithoutValidation("X-Title", "Agent Studio");
             }
 
             var json = JsonSerializer.Serialize(requestBody);
@@ -181,7 +193,11 @@ public sealed class OpenAILikeLLMProvider : ILLMProvider
         return ProviderType switch
         {
             LLMProviderType.DeepSeek => "https://api.deepseek.com/chat/completions",
+            LLMProviderType.Groq => "https://api.groq.com/openai/v1/chat/completions",
+            LLMProviderType.OpenRouter => "https://openrouter.ai/api/v1/chat/completions",
+            LLMProviderType.Mistral => "https://api.mistral.ai/v1/chat/completions",
             LLMProviderType.Ollama => "http://localhost:11434/v1/chat/completions",
+            LLMProviderType.CustomOpenAI => "http://localhost:8000/v1/chat/completions",
             _ => "https://api.openai.com/v1/chat/completions"
         };
     }
