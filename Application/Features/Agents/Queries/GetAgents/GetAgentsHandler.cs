@@ -1,3 +1,4 @@
+using API.Application.Features.Agents.Mappers;
 using API.Application.Abstractions;
 using API.Application.Messaging;
 using API.Domain.Common;
@@ -16,20 +17,6 @@ public sealed class GetAgentsHandler : IQueryHandler<GetAgentsQuery, IReadOnlyLi
     public async Task<Result<IReadOnlyList<AgentResponse>>> Handle(GetAgentsQuery request, CancellationToken cancellationToken)
     {
         var agents = await _agentRepository.GetAllAsync(cancellationToken);
-
-        var responses = agents.Select(a => new AgentResponse(
-            a.Id,
-            a.Name,
-            a.Avatar,
-            a.RoleTitle,
-            a.Department,
-            a.EmploymentType.ToString(),
-            a.Skills,
-            a.ModelConfig.Provider.ToString(),
-            a.ModelConfig.ModelName,
-            a.Status
-        )).ToList();
-
-        return Result<IReadOnlyList<AgentResponse>>.Success(responses);
+        return Result<IReadOnlyList<AgentResponse>>.Success(agents.ToResponse());
     }
 }
