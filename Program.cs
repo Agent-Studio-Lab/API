@@ -7,12 +7,12 @@ using Hangfire;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add Layers
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
 
 builder.Services.AddCors(options =>
 {
@@ -30,15 +30,18 @@ var app = builder.Build();
 
 app.UseCors("CorsPolicy");
 
-// Hangfire Dashboard
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+
 app.UseHangfireDashboard("/hangfire");
 
-// SignalR Hub Endpoint
 app.MapHub<OfficeHub>("/officeHub");
 
 app.MapControllers();
 
-// Auto Migration & Data Seeding
 using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<AgentStudioDbContext>();
