@@ -1,3 +1,4 @@
+using API.Application.Features.Agents.Commands.TestConnection;
 using API.Application.Features.Agents.Commands.UpdateConfig;
 using API.Application.Features.Agents.Queries.GetAgents;
 using API.Presentation.Common;
@@ -22,6 +23,16 @@ public sealed class AgentsController : ControllerBase
     {
         var query = new GetAgentsQuery();
         var result = await _sender.Send(query, cancellationToken);
+        return result.ToActionResult();
+    }
+
+    [HttpPost("test-connection")]
+    public async Task<IActionResult> TestConnection(
+        [FromBody] TestLLMConnectionRequest request,
+        CancellationToken cancellationToken)
+    {
+        var command = new TestLLMConnectionCommand(request);
+        var result = await _sender.Send(command, cancellationToken);
         return result.ToActionResult();
     }
 

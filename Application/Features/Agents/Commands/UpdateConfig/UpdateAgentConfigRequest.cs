@@ -7,4 +7,5 @@ public sealed record UpdateAgentConfigRequest(
     LLMProviderType Provider,
     string ModelName,
     string? ApiKey = null,
-    string? BaseUrl = null);
+    string? BaseUrl = null,
+    bool ValidateConnection = true);

@@ -8,10 +8,14 @@ namespace API.Application.Features.Agents.Commands.UpdateConfig;
 public sealed class UpdateAgentConfigHandler : ICommandHandler<UpdateAgentConfigCommand, bool>
 {
     private readonly IAgentRepository _agentRepository;
+    private readonly ILLMProviderFactory _llmProviderFactory;
 
-    public UpdateAgentConfigHandler(IAgentRepository agentRepository)
+    public UpdateAgentConfigHandler(
+        IAgentRepository agentRepository,
+        ILLMProviderFactory llmProviderFactory)
     {
         _agentRepository = agentRepository;
+        _llmProviderFactory = llmProviderFactory;
     }
 
     public async Task<Result<bool>> Handle(UpdateAgentConfigCommand command, CancellationToken cancellationToken)
@@ -29,6 +33,16 @@ public sealed class UpdateAgentConfigHandler : ICommandHandler<UpdateAgentConfig
             request.ModelName,
             request.ApiKey,
             request.BaseUrl);
+
+        if (request.ValidateConnection && !string.IsNullOrWhiteSpace(request.ApiKey) && request.Provider != Domain.Enums.LLMProviderType.Mock)
+        {
+            var provider = _llmProviderFactory.GetProvider(request.Provider);
+            var validationResult = await provider.ValidateConnectionAsync(newConfig, cancellationToken);
+            if (!validationResult.IsSuccess)
+            {
+                return validationResult;
+            }
+        }
 
         agent.UpdateModelConfig(newConfig);
         await _agentRepository.UpdateAsync(agent, cancellationToken);

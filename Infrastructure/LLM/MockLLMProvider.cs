@@ -1,4 +1,5 @@
 using API.Application.Abstractions;
+using API.Domain.Common;
 using API.Domain.Enums;
 using API.Domain.ValueObjects;
 
@@ -34,5 +35,12 @@ public sealed class MockLLMProvider : ILLMProvider
             : $"[Mô phỏng phản hồi từ {config.Provider} - {config.ModelName}]: Tôi đã xử lý yêu cầu dựa trên vai trò chuyên môn.";
 
         return Task.FromResult(response);
+    }
+
+    public Task<Result<bool>> ValidateConnectionAsync(
+        ModelConfig config,
+        CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult(Result<bool>.Success(true));
     }
 }
