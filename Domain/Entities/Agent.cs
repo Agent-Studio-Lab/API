@@ -8,12 +8,15 @@ public sealed class Agent : AggregateRoot
 {
     public string Name { get; private set; }
     public string Avatar { get; private set; }
-    public AgentRole Role { get; private set; }
     public string RoleTitle { get; private set; }
     public string Department { get; private set; }
     public string SystemPrompt { get; private set; }
     public ModelConfig ModelConfig { get; private set; }
     public string Status { get; private set; }
+    public AgentEmploymentType EmploymentType { get; private set; }
+
+    private readonly List<string> _skills = [];
+    public IReadOnlyCollection<string> Skills => _skills.AsReadOnly();
 
     private readonly List<OfficeMessage> _memory = [];
     public IReadOnlyCollection<OfficeMessage> Memory => _memory.AsReadOnly();
@@ -21,21 +24,27 @@ public sealed class Agent : AggregateRoot
     public Agent(
         string name,
         string avatar,
-        AgentRole role,
         string roleTitle,
         string department,
         string systemPrompt,
         ModelConfig modelConfig,
+        AgentEmploymentType employmentType,
+        IEnumerable<string>? skills = null,
         Guid? id = null) : base(id)
     {
         Name = name;
         Avatar = avatar;
-        Role = role;
         RoleTitle = roleTitle;
         Department = department;
         SystemPrompt = systemPrompt;
         ModelConfig = modelConfig;
+        EmploymentType = employmentType;
         Status = string.Empty;
+
+        if (skills is not null)
+        {
+            _skills.AddRange(skills);
+        }
     }
 
     public void UpdateStatus(string status)
@@ -46,6 +55,19 @@ public sealed class Agent : AggregateRoot
     public void UpdateModelConfig(ModelConfig modelConfig)
     {
         ModelConfig = modelConfig;
+    }
+
+    public void PromoteToPermanent()
+    {
+        EmploymentType = AgentEmploymentType.Permanent;
+    }
+
+    public void AddSkill(string skill)
+    {
+        if (!string.IsNullOrWhiteSpace(skill) && !_skills.Contains(skill))
+        {
+            _skills.Add(skill);
+        }
     }
 
     public void AddMemory(OfficeMessage message)

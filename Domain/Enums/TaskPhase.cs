@@ -2,9 +2,13 @@ namespace API.Domain.Enums;
 
 public enum TaskPhase
 {
-    Backlog,
-    Planning,
-    Implementation,
-    Review,
-    Completed
+    Draft,
+    Debating,
+    WaitingHiringApproval,
+    Executing,
+    TestingAndReviewing,
+    WaitingFinalApproval,
+    Completed,
+    Failed,
+    Cancelled
 }

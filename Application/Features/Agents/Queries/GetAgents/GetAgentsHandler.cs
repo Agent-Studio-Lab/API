@@ -21,9 +21,10 @@ public sealed class GetAgentsHandler : IQueryHandler<GetAgentsQuery, IReadOnlyLi
             a.Id,
             a.Name,
             a.Avatar,
-            a.Role.ToString(),
             a.RoleTitle,
             a.Department,
+            a.EmploymentType.ToString(),
+            a.Skills,
             a.ModelConfig.Provider.ToString(),
             a.ModelConfig.ModelName,
             a.Status
