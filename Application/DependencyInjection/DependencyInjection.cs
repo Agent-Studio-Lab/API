@@ -1,4 +1,5 @@
 using System.Reflection;
+using API.Application.Behaviors;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace API.Application.DependencyInjection;
@@ -10,6 +11,9 @@ public static class DependencyInjection
         services.AddMediatR(configuration =>
         {
             configuration.RegisterServicesFromAssembly(Assembly.GetExecutingAssembly());
+
+            configuration.AddOpenBehavior(typeof(ExceptionHandlingBehavior<,>));
+            configuration.AddOpenBehavior(typeof(LoggingBehavior<,>));
         });
 
         return services;
