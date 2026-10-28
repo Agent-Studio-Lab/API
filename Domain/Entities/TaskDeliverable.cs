@@ -10,6 +10,13 @@ public sealed class TaskDeliverable : Entity
     public string Content { get; private set; }
     public Guid CreatedByAgentId { get; private set; }
 
+    private TaskDeliverable() : base(null)
+    {
+        Title = string.Empty;
+        ContentType = string.Empty;
+        Content = string.Empty;
+    }
+
     public TaskDeliverable(
         Guid taskTicketId,
         string title,

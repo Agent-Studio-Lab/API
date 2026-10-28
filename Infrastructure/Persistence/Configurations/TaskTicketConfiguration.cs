@@ -38,17 +38,18 @@ public sealed class TaskTicketConfiguration : IEntityTypeConfiguration<TaskTicke
             .IsRequired();
 
         // Map Value Object FinalPlan thành cột JSONB
-        builder.OwnsOne(x => x.FinalPlan, plan =>
-        {
-            plan.ToJson();
-            plan.OwnsOne(p => p.ProposedHire);
-        });
+        builder.Property(x => x.FinalPlan)
+            .HasColumnType("jsonb")
+            .HasConversion(
+                v => JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
+                v => JsonSerializer.Deserialize<ConsensusPlan>(v, (JsonSerializerOptions?)null));
 
         // Map Value Object PendingHiring thành cột JSONB
-        builder.OwnsOne(x => x.PendingHiring, hire =>
-        {
-            hire.ToJson();
-        });
+        builder.Property(x => x.PendingHiring)
+            .HasColumnType("jsonb")
+            .HasConversion(
+                v => JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
+                v => JsonSerializer.Deserialize<HiringProposal>(v, (JsonSerializerOptions?)null));
 
         // Map danh sách Votes thành JSONB
         builder.Property(x => x.Votes)

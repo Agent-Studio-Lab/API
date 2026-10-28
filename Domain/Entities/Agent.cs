@@ -21,6 +21,16 @@ public sealed class Agent : AggregateRoot
     private readonly List<OfficeMessage> _memory = [];
     public IReadOnlyCollection<OfficeMessage> Memory => _memory.AsReadOnly();
 
+    private Agent() : base(null)
+    {
+        Name = string.Empty;
+        RoleTitle = string.Empty;
+        Department = string.Empty;
+        SystemPrompt = string.Empty;
+        ModelConfig = null!;
+        Status = string.Empty;
+    }
+
     public Agent(
         string name,
         string? avatar,

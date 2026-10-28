@@ -4,6 +4,7 @@ using API.Infrastructure.Persistence;
 using API.Infrastructure.Persistence.Seeding;
 using API.Infrastructure.Realtime;
 using Hangfire;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -49,7 +50,20 @@ app.MapControllers();
 using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<AgentStudioDbContext>();
-    await dbContext.Database.EnsureCreatedAsync();
+    var dbCreator = dbContext.Database.GetService<Microsoft.EntityFrameworkCore.Storage.IRelationalDatabaseCreator>();
+    try
+    {
+        await dbCreator.CreateTablesAsync();
+    }
+    catch (Npgsql.PostgresException ex) when (ex.SqlState == "42P07")
+    {
+        // Tables already exist
+    }
+    catch (Exception)
+    {
+        await dbContext.Database.EnsureCreatedAsync();
+    }
+
     await DatabaseSeeder.SeedAsync(dbContext);
 }
 

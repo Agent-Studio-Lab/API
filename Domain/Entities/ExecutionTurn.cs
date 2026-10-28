@@ -13,6 +13,13 @@ public sealed class ExecutionTurn : Entity
     public bool IsIssueFound { get; private set; }
     public string? IssueDetails { get; private set; }
 
+    private ExecutionTurn() : base(null)
+    {
+        SpeakerName = string.Empty;
+        SpeakerRoleTitle = string.Empty;
+        Content = string.Empty;
+    }
+
     public ExecutionTurn(
         Guid taskTicketId,
         int loopNumber,

@@ -48,10 +48,11 @@ public sealed class AgentConfiguration : IEntityTypeConfiguration<Agent>
                 v => JsonSerializer.Deserialize<List<string>>(v, (JsonSerializerOptions?)null) ?? new List<string>());
 
         // Map Value Object ModelConfig thành cột JSONB
-        builder.OwnsOne(x => x.ModelConfig, cfg =>
-        {
-            cfg.ToJson();
-        });
+        builder.Property(x => x.ModelConfig)
+            .HasColumnType("jsonb")
+            .HasConversion(
+                v => JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
+                v => JsonSerializer.Deserialize<ModelConfig>(v, (JsonSerializerOptions?)null)!);
 
         // Ignore Memory runtime collection khỏi bảng Agent chính
         builder.Ignore(x => x.Memory);

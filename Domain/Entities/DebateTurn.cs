@@ -11,6 +11,12 @@ public sealed class DebateTurn : Entity
     public int RoundNumber { get; private set; }
     public string Statement { get; private set; }
 
+    private DebateTurn() : base(null)
+    {
+        AgentName = string.Empty;
+        Statement = string.Empty;
+    }
+
     public DebateTurn(
         Guid taskTicketId,
         Guid agentId,

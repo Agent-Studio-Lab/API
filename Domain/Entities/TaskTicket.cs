@@ -30,6 +30,12 @@ public sealed class TaskTicket : AggregateRoot
     private readonly List<TaskDeliverable> _deliverables = [];
     public IReadOnlyCollection<TaskDeliverable> Deliverables => _deliverables.AsReadOnly();
 
+    private TaskTicket() : base(null)
+    {
+        Title = string.Empty;
+        Description = string.Empty;
+    }
+
     public TaskTicket(
         string title,
         string description,

@@ -11,6 +11,12 @@ public sealed class OfficeMessage : Entity
     public TaskPhase Phase { get; private set; }
     public DateTime Timestamp { get; private set; }
 
+    private OfficeMessage() : base(null)
+    {
+        SenderName = string.Empty;
+        Content = string.Empty;
+    }
+
     public OfficeMessage(
         string senderName,
         string? receiverName,
