@@ -34,7 +34,7 @@ public sealed class UpdateAgentConfigHandler : ICommandHandler<UpdateAgentConfig
             request.ApiKey,
             request.BaseUrl);
 
-        if (request.ValidateConnection && !string.IsNullOrWhiteSpace(request.ApiKey) && request.Provider != Domain.Enums.LLMProviderType.Mock)
+        if (request.ValidateConnection && !string.IsNullOrWhiteSpace(request.ApiKey) && !request.Provider.Equals("Mock", StringComparison.OrdinalIgnoreCase))
         {
             var provider = _llmProviderFactory.GetProvider(request.Provider);
             var validationResult = await provider.ValidateConnectionAsync(newConfig, cancellationToken);

@@ -3,7 +3,6 @@ using System.Text;
 using System.Text.Json;
 using API.Application.Abstractions;
 using API.Domain.Common;
-using API.Domain.Enums;
 using API.Domain.ValueObjects;
 
 namespace API.Infrastructure.LLM;
@@ -11,12 +10,12 @@ namespace API.Infrastructure.LLM;
 public sealed class OpenAILikeLLMProvider : ILLMProvider
 {
     private readonly HttpClient _httpClient;
-    public LLMProviderType ProviderType { get; }
+    public string ProviderName { get; }
 
-    public OpenAILikeLLMProvider(HttpClient httpClient, LLMProviderType providerType)
+    public OpenAILikeLLMProvider(HttpClient httpClient, string providerName = "OpenAI")
     {
         _httpClient = httpClient;
-        ProviderType = providerType;
+        ProviderName = string.IsNullOrWhiteSpace(providerName) ? "OpenAI" : providerName;
     }
 
     public async Task<string> GenerateResponseAsync(
@@ -27,9 +26,9 @@ public sealed class OpenAILikeLLMProvider : ILLMProvider
     {
         var endpoint = ResolveEndpoint(config);
         var apiKey = config.ApiKey;
-        if (string.IsNullOrWhiteSpace(apiKey) && ProviderType != LLMProviderType.Ollama && ProviderType != LLMProviderType.CustomOpenAI)
+        if (string.IsNullOrWhiteSpace(apiKey) && !IsLocalProvider())
         {
-            return await new MockLLMProvider(ProviderType).GenerateResponseAsync(config, systemPrompt, userPrompt, cancellationToken);
+            return await new MockLLMProvider(ProviderName).GenerateResponseAsync(config, systemPrompt, userPrompt, cancellationToken);
         }
 
         var requestBody = new Dictionary<string, object>
@@ -53,7 +52,7 @@ public sealed class OpenAILikeLLMProvider : ILLMProvider
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
         }
 
-        if (ProviderType == LLMProviderType.OpenRouter)
+        if (ProviderName.Equals("openrouter", StringComparison.OrdinalIgnoreCase))
         {
             request.Headers.TryAddWithoutValidation("HTTP-Referer", "https://agentstudio.lab");
             request.Headers.TryAddWithoutValidation("X-Title", "Agent Studio");
@@ -66,7 +65,7 @@ public sealed class OpenAILikeLLMProvider : ILLMProvider
         if (!response.IsSuccessStatusCode)
         {
             var errorContent = await response.Content.ReadAsStringAsync(cancellationToken);
-            throw new HttpRequestException($"Provider {ProviderType} request failed ({response.StatusCode}): {errorContent}");
+            throw new HttpRequestException($"Provider {ProviderName} request failed ({response.StatusCode}): {errorContent}");
         }
 
         var responseString = await response.Content.ReadAsStringAsync(cancellationToken);
@@ -86,9 +85,9 @@ public sealed class OpenAILikeLLMProvider : ILLMProvider
         ModelConfig config,
         CancellationToken cancellationToken = default)
     {
-        if (ProviderType != LLMProviderType.Ollama && ProviderType != LLMProviderType.CustomOpenAI && string.IsNullOrWhiteSpace(config.ApiKey))
+        if (!IsLocalProvider() && string.IsNullOrWhiteSpace(config.ApiKey))
         {
-            return Result<bool>.Failure(400, $"API Key của {ProviderType} không được để trống khi xác thực kết nối.");
+            return Result<bool>.Failure(400, $"API Key của {ProviderName} không được để trống khi xác thực kết nối.");
         }
 
         if (string.IsNullOrWhiteSpace(config.ModelName))
@@ -116,7 +115,7 @@ public sealed class OpenAILikeLLMProvider : ILLMProvider
                 request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", config.ApiKey);
             }
 
-            if (ProviderType == LLMProviderType.OpenRouter)
+            if (ProviderName.Equals("openrouter", StringComparison.OrdinalIgnoreCase))
             {
                 request.Headers.TryAddWithoutValidation("HTTP-Referer", "https://agentstudio.lab");
                 request.Headers.TryAddWithoutValidation("X-Title", "Agent Studio");
@@ -139,21 +138,27 @@ public sealed class OpenAILikeLLMProvider : ILLMProvider
                 401 => Result<bool>.Failure(401, $"API Key không hợp lệ hoặc không có quyền truy cập: {detailedMessage}"),
                 404 => Result<bool>.Failure(404, $"Không tìm thấy Model '{config.ModelName}' hoặc endpoint không tồn tại: {detailedMessage}"),
                 429 => Result<bool>.Failure(429, $"Tài khoản hết hạn ngạch (quota) hoặc bị giới hạn tốc độ: {detailedMessage}"),
-                _ => Result<bool>.Failure((int)response.StatusCode, $"Xác thực {ProviderType} thất bại ({response.StatusCode}): {detailedMessage}")
+                _ => Result<bool>.Failure((int)response.StatusCode, $"Xác thực {ProviderName} thất bại ({response.StatusCode}): {detailedMessage}")
             };
         }
         catch (HttpRequestException ex)
         {
-            return Result<bool>.Failure(502, $"Không thể kết nối đến máy chủ {ProviderType}: {ex.Message}");
+            return Result<bool>.Failure(502, $"Không thể kết nối đến máy chủ {ProviderName}: {ex.Message}");
         }
         catch (TaskCanceledException)
         {
-            return Result<bool>.Failure(408, $"Quá thời gian kết nối (Timeout) đến {ProviderType}. Vui lòng kiểm tra lại Base URL và kết nối mạng.");
+            return Result<bool>.Failure(408, $"Quá thời gian kết nối (Timeout) đến {ProviderName}. Vui lòng kiểm tra lại Base URL và kết nối mạng.");
         }
         catch (Exception ex)
         {
             return Result<bool>.Failure(500, $"Lỗi không xác định khi kiểm tra kết nối: {ex.Message}");
         }
+    }
+
+    private bool IsLocalProvider()
+    {
+        var normalized = ProviderName.Trim().ToLowerInvariant();
+        return normalized is "ollama" or "local" or "custom" or "customopenai";
     }
 
     private static string? TryExtractErrorMessage(string jsonContent)
@@ -190,14 +195,19 @@ public sealed class OpenAILikeLLMProvider : ILLMProvider
                 : $"{url}/chat/completions";
         }
 
-        return ProviderType switch
+        var normalized = ProviderName.Trim().ToLowerInvariant();
+
+        return normalized switch
         {
-            LLMProviderType.DeepSeek => "https://api.deepseek.com/chat/completions",
-            LLMProviderType.Groq => "https://api.groq.com/openai/v1/chat/completions",
-            LLMProviderType.OpenRouter => "https://openrouter.ai/api/v1/chat/completions",
-            LLMProviderType.Mistral => "https://api.mistral.ai/v1/chat/completions",
-            LLMProviderType.Ollama => "http://localhost:11434/v1/chat/completions",
-            LLMProviderType.CustomOpenAI => "http://localhost:8000/v1/chat/completions",
+            "deepseek" => "https://api.deepseek.com/chat/completions",
+            "groq" => "https://api.groq.com/openai/v1/chat/completions",
+            "openrouter" => "https://openrouter.ai/api/v1/chat/completions",
+            "mistral" => "https://api.mistral.ai/v1/chat/completions",
+            "ollama" => "http://localhost:11434/v1/chat/completions",
+            "xai" or "grok" => "https://api.x.ai/v1/chat/completions",
+            "together" or "togetherai" => "https://api.together.xyz/v1/chat/completions",
+            "perplexity" => "https://api.perplexity.ai/chat/completions",
+            "fireworks" => "https://api.fireworks.ai/inference/v1/chat/completions",
             _ => "https://api.openai.com/v1/chat/completions"
         };
     }

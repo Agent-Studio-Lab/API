@@ -17,7 +17,7 @@ public static class DatabaseSeeder
         }
 
         var unconfiguredModel = new ModelConfig(
-            Provider: LLMProviderType.OpenAI,
+            Provider: string.Empty,
             ModelName: string.Empty,
             ApiKey: null,
             BaseUrl: null);

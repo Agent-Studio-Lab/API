@@ -1,17 +1,16 @@
 using API.Application.Abstractions;
 using API.Domain.Common;
-using API.Domain.Enums;
 using API.Domain.ValueObjects;
 
 namespace API.Infrastructure.LLM;
 
 public sealed class MockLLMProvider : ILLMProvider
 {
-    public LLMProviderType ProviderType { get; }
+    public string ProviderName { get; }
 
-    public MockLLMProvider(LLMProviderType providerType = LLMProviderType.OpenAI)
+    public MockLLMProvider(string providerName = "Mock")
     {
-        ProviderType = providerType;
+        ProviderName = string.IsNullOrWhiteSpace(providerName) ? "Mock" : providerName;
     }
 
     public Task<string> GenerateResponseAsync(

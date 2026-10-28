@@ -1,6 +1,4 @@
 using API.Application.Abstractions;
-using API.Domain.Enums;
-using API.Domain.ValueObjects;
 
 namespace API.Infrastructure.LLM;
 
@@ -13,22 +11,29 @@ public sealed class LLMProviderFactory : ILLMProviderFactory
         _httpClientFactory = httpClientFactory;
     }
 
-    public ILLMProvider GetProvider(LLMProviderType providerType)
+    public ILLMProvider GetProvider(string providerName)
     {
         var httpClient = _httpClientFactory.CreateClient();
+        var safeName = string.IsNullOrWhiteSpace(providerName) ? "Mock" : providerName.Trim();
+        var normalized = safeName.ToLowerInvariant();
 
-        return providerType switch
+        if (normalized == "mock")
         {
-            LLMProviderType.Gemini => new GeminiLLMProvider(httpClient),
-            LLMProviderType.Anthropic => new AnthropicLLMProvider(httpClient),
-            LLMProviderType.OpenAI => new OpenAILikeLLMProvider(httpClient, LLMProviderType.OpenAI),
-            LLMProviderType.DeepSeek => new OpenAILikeLLMProvider(httpClient, LLMProviderType.DeepSeek),
-            LLMProviderType.Groq => new OpenAILikeLLMProvider(httpClient, LLMProviderType.Groq),
-            LLMProviderType.OpenRouter => new OpenAILikeLLMProvider(httpClient, LLMProviderType.OpenRouter),
-            LLMProviderType.Mistral => new OpenAILikeLLMProvider(httpClient, LLMProviderType.Mistral),
-            LLMProviderType.Ollama => new OpenAILikeLLMProvider(httpClient, LLMProviderType.Ollama),
-            LLMProviderType.CustomOpenAI => new OpenAILikeLLMProvider(httpClient, LLMProviderType.CustomOpenAI),
-            _ => new MockLLMProvider(providerType)
-        };
+            return new MockLLMProvider(safeName);
+        }
+
+        if (normalized.Contains("gemini") || normalized.Contains("google"))
+        {
+            return new GeminiLLMProvider(httpClient, safeName);
+        }
+
+        if (normalized.Contains("anthropic") || normalized.Contains("claude"))
+        {
+            return new AnthropicLLMProvider(httpClient, safeName);
+        }
+
+        // All other providers (OpenAI, DeepSeek, Groq, OpenRouter, Mistral, Ollama, xAI, Together, Perplexity, Fireworks, Cerebras, Custom, etc.)
+        // use standard OpenAI-compatible completions protocol
+        return new OpenAILikeLLMProvider(httpClient, safeName);
     }
 }

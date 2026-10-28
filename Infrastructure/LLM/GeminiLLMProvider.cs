@@ -2,7 +2,6 @@ using System.Text;
 using System.Text.Json;
 using API.Application.Abstractions;
 using API.Domain.Common;
-using API.Domain.Enums;
 using API.Domain.ValueObjects;
 
 namespace API.Infrastructure.LLM;
@@ -10,11 +9,12 @@ namespace API.Infrastructure.LLM;
 public sealed class GeminiLLMProvider : ILLMProvider
 {
     private readonly HttpClient _httpClient;
-    public LLMProviderType ProviderType => LLMProviderType.Gemini;
+    public string ProviderName { get; }
 
-    public GeminiLLMProvider(HttpClient httpClient)
+    public GeminiLLMProvider(HttpClient httpClient, string providerName = "Gemini")
     {
         _httpClient = httpClient;
+        ProviderName = string.IsNullOrWhiteSpace(providerName) ? "Gemini" : providerName;
     }
 
     public async Task<string> GenerateResponseAsync(
@@ -27,7 +27,7 @@ public sealed class GeminiLLMProvider : ILLMProvider
         var apiKey = config.ApiKey;
         if (string.IsNullOrWhiteSpace(apiKey))
         {
-            return await new MockLLMProvider(ProviderType).GenerateResponseAsync(config, systemPrompt, userPrompt, cancellationToken);
+            return await new MockLLMProvider(ProviderName).GenerateResponseAsync(config, systemPrompt, userPrompt, cancellationToken);
         }
 
         var baseUrl = !string.IsNullOrWhiteSpace(config.BaseUrl)
@@ -97,7 +97,7 @@ public sealed class GeminiLLMProvider : ILLMProvider
     {
         if (string.IsNullOrWhiteSpace(config.ApiKey))
         {
-            return Result<bool>.Failure(400, "API Key của Google Gemini không được để trống khi xác thực kết nối.");
+            return Result<bool>.Failure(400, $"API Key của {ProviderName} không được để trống khi xác thực kết nối.");
         }
 
         var model = string.IsNullOrWhiteSpace(config.ModelName) ? "gemini-1.5-flash" : config.ModelName;
@@ -141,24 +141,24 @@ public sealed class GeminiLLMProvider : ILLMProvider
 
             return (int)response.StatusCode switch
             {
-                400 => Result<bool>.Failure(400, $"API Key hoặc cấu hình Gemini không hợp lệ: {detailedMessage}"),
-                403 => Result<bool>.Failure(403, $"API Key không có quyền sử dụng Gemini hoặc chưa kích hoạt API: {detailedMessage}"),
-                404 => Result<bool>.Failure(404, $"Không tìm thấy Model Gemini '{model}': {detailedMessage}"),
-                429 => Result<bool>.Failure(429, $"Vượt quá giới hạn tần suất hoặc hạn ngạch Google Gemini: {detailedMessage}"),
-                _ => Result<bool>.Failure((int)response.StatusCode, $"Xác thực Google Gemini thất bại ({response.StatusCode}): {detailedMessage}")
+                400 => Result<bool>.Failure(400, $"API Key hoặc cấu hình {ProviderName} không hợp lệ: {detailedMessage}"),
+                403 => Result<bool>.Failure(403, $"API Key không có quyền sử dụng {ProviderName} hoặc chưa kích hoạt API: {detailedMessage}"),
+                404 => Result<bool>.Failure(404, $"Không tìm thấy Model {ProviderName} '{model}': {detailedMessage}"),
+                429 => Result<bool>.Failure(429, $"Vượt quá giới hạn tần suất hoặc hạn ngạch {ProviderName}: {detailedMessage}"),
+                _ => Result<bool>.Failure((int)response.StatusCode, $"Xác thực {ProviderName} thất bại ({response.StatusCode}): {detailedMessage}")
             };
         }
         catch (HttpRequestException ex)
         {
-            return Result<bool>.Failure(502, $"Không thể kết nối đến Google Gemini API: {ex.Message}");
+            return Result<bool>.Failure(502, $"Không thể kết nối đến {ProviderName} API: {ex.Message}");
         }
         catch (TaskCanceledException)
         {
-            return Result<bool>.Failure(408, "Quá thời gian kết nối (Timeout) đến Google Gemini API. Vui lòng kiểm tra lại kết nối mạng.");
+            return Result<bool>.Failure(408, $"Quá thời gian kết nối (Timeout) đến {ProviderName} API. Vui lòng kiểm tra lại kết nối mạng.");
         }
         catch (Exception ex)
         {
-            return Result<bool>.Failure(500, $"Lỗi không xác định khi kiểm tra Google Gemini API: {ex.Message}");
+            return Result<bool>.Failure(500, $"Lỗi không xác định khi kiểm tra {ProviderName} API: {ex.Message}");
         }
     }
 
