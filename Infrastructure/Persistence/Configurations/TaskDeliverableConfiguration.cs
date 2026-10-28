@@ -8,7 +8,7 @@ public sealed class TaskDeliverableConfiguration : IEntityTypeConfiguration<Task
 {
     public void Configure(EntityTypeBuilder<TaskDeliverable> builder)
     {
-        builder.ToTable("task_deliverables");
+        builder.ToTable("TaskDeliverables");
 
         builder.HasKey(x => x.Id);
 

@@ -8,7 +8,7 @@ public sealed class ExecutionTurnConfiguration : IEntityTypeConfiguration<Execut
 {
     public void Configure(EntityTypeBuilder<ExecutionTurn> builder)
     {
-        builder.ToTable("execution_turns");
+        builder.ToTable("ExecutionTurns");
 
         builder.HasKey(x => x.Id);
 

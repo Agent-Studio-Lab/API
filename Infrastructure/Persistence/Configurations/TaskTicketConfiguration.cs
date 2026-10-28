@@ -10,7 +10,7 @@ public sealed class TaskTicketConfiguration : IEntityTypeConfiguration<TaskTicke
 {
     public void Configure(EntityTypeBuilder<TaskTicket> builder)
     {
-        builder.ToTable("task_tickets");
+        builder.ToTable("TaskTickets");
 
         builder.HasKey(x => x.Id);
 

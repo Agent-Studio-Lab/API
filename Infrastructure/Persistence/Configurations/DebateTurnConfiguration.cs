@@ -8,7 +8,7 @@ public sealed class DebateTurnConfiguration : IEntityTypeConfiguration<DebateTur
 {
     public void Configure(EntityTypeBuilder<DebateTurn> builder)
     {
-        builder.ToTable("debate_turns");
+        builder.ToTable("DebateTurns");
 
         builder.HasKey(x => x.Id);
 
