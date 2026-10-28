@@ -235,7 +235,7 @@ public sealed class TaskWorkflowJob
                 cancellationToken);
         }
 
-        // --- BƯỚC 3: NGHIỆM THU & BÁO CÁO SẾP ---
+        // --- BƯỚC 3: NGHIỆM THU & CHỜ PHÊ DUYỆT TỪ NGƯỜI DÙNG (USER APPROVAL) ---
         if (reviewPassed)
         {
             ticket.MarkWaitingFinalApproval();

@@ -24,6 +24,10 @@ public sealed class GeminiLLMProvider : ILLMProvider
     {
         var model = string.IsNullOrWhiteSpace(config.ModelName) ? "gemini-1.5-flash" : config.ModelName;
         var apiKey = config.ApiKey;
+        if (string.IsNullOrWhiteSpace(apiKey))
+        {
+            return await new MockLLMProvider(ProviderType).GenerateResponseAsync(config, systemPrompt, userPrompt, cancellationToken);
+        }
 
         var baseUrl = !string.IsNullOrWhiteSpace(config.BaseUrl)
             ? config.BaseUrl.TrimEnd('/')
@@ -64,7 +68,7 @@ public sealed class GeminiLLMProvider : ILLMProvider
         if (!response.IsSuccessStatusCode)
         {
             var errorContent = await response.Content.ReadAsStringAsync(cancellationToken);
-            throw new InvalidOperationException($"Lỗi gọi Gemini API ({response.StatusCode}): {errorContent}");
+            throw new HttpRequestException($"Gemini API request failed ({response.StatusCode}): {errorContent}");
         }
 
         var responseString = await response.Content.ReadAsStringAsync(cancellationToken);

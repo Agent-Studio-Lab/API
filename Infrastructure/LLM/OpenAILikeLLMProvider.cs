@@ -26,6 +26,10 @@ public sealed class OpenAILikeLLMProvider : ILLMProvider
     {
         var endpoint = ResolveEndpoint(config);
         var apiKey = config.ApiKey;
+        if (string.IsNullOrWhiteSpace(apiKey) && ProviderType != LLMProviderType.Ollama)
+        {
+            return await new MockLLMProvider(ProviderType).GenerateResponseAsync(config, systemPrompt, userPrompt, cancellationToken);
+        }
 
         var requestBody = new Dictionary<string, object>
         {
@@ -55,7 +59,7 @@ public sealed class OpenAILikeLLMProvider : ILLMProvider
         if (!response.IsSuccessStatusCode)
         {
             var errorContent = await response.Content.ReadAsStringAsync(cancellationToken);
-            throw new InvalidOperationException($"Lỗi gọi {ProviderType} API ({response.StatusCode}): {errorContent}");
+            throw new HttpRequestException($"Provider {ProviderType} request failed ({response.StatusCode}): {errorContent}");
         }
 
         var responseString = await response.Content.ReadAsStringAsync(cancellationToken);

@@ -46,7 +46,7 @@ using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<AgentStudioDbContext>();
     await dbContext.Database.EnsureCreatedAsync();
-    await DatabaseSeeder.SeedAsync(dbContext, builder.Configuration);
+    await DatabaseSeeder.SeedAsync(dbContext);
 }
 
 app.Run();
