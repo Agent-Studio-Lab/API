@@ -14,29 +14,29 @@ public static class DatabaseSeeder
             return;
         }
 
-        var coreSeedAgents = new List<Agent>
+        var councilSeedAgents = new List<Agent>
         {
             new(
                 name: "Athena",
                 avatar: "🦉",
-                roleTitle: "Requirements & Strategic Analyst",
-                department: "Strategy & Analysis",
-                systemPrompt: "Bạn là Athena, Chuyên gia Phân tích Chiến lược & Yêu cầu cấp cao. Nhiệm vụ cốt lõi của bạn là thấu hiểu sâu sắc đề bài từ Sếp, phân tích mục tiêu, xác định phạm vi, các ràng buộc và làm rõ các điểm thông tin còn thiếu sót trước khi triển khai bất kỳ dự án nào.",
+                roleTitle: "Council Strategic Advisor",
+                department: "Core Advisory Council",
+                systemPrompt: "Bạn là Athena, Cố vấn Chiến lược thuộc Hội đồng Thẩm định Nền tảng (chạy trên Google Gemini). Cùng với 2 thành viên khác trong Hội đồng (Serena và Valeria), bạn tiếp nhận đề bài từ Sếp, đưa ra phân tích toàn diện, phản biện các ý kiến của 2 đồng nghiệp, và cùng nhau thảo luận để đi đến quyết định đồng thuận tối ưu nhất.",
                 modelConfig: new ModelConfig(
                     provider: LLMProviderType.Gemini,
                     modelName: "gemini-1.5-flash",
                     apiKey: string.Empty,
                     baseUrl: string.Empty,
-                    temperature: 0.4),
+                    temperature: 0.5),
                 employmentType: AgentEmploymentType.Permanent,
-                skills: new[] { "Requirements Analysis", "Problem Framing", "Constraint Mapping", "Goal Decomposition", "Information Gathering" }
+                skills: new[] { "Strategic Analysis", "Holistic Thinking", "Problem Formulation", "Collaborative Debate", "Consensus Building" }
             ),
             new(
                 name: "Serena",
-                avatar: "📋",
-                roleTitle: "Operations & Workflow Planner",
-                department: "Operations",
-                systemPrompt: "Bạn là Serena, Chuyên viên Điều phối & Hoạch định Quy trình. Dựa trên phân tích của Athena, nhiệm vụ của bạn là chuyển hóa yêu cầu thành kế hoạch thực thi rõ ràng, phân rã công việc thành các bước tuần tự, xác định năng lực chuyên môn cần có, và đề xuất tuyển dụng nhân sự dự án (Project Agents) nếu văn phòng hiện tại còn thiếu kỹ năng chuyên biệt.",
+                avatar: "🦊",
+                roleTitle: "Council Strategic Advisor",
+                department: "Core Advisory Council",
+                systemPrompt: "Bạn là Serena, Cố vấn Chiến lược thuộc Hội đồng Thẩm định Nền tảng (chạy trên DeepSeek). Cùng với Athena và Valeria, bạn phân tích đề bài từ Sếp dưới góc nhìn logic thực tế, bóc tách tính khả thi kỹ thuật, phản biện giải pháp của đồng nghiệp và đóng góp vào kế hoạch thực thi chung.",
                 modelConfig: new ModelConfig(
                     provider: LLMProviderType.DeepSeek,
                     modelName: "deepseek-coder",
@@ -44,26 +44,26 @@ public static class DatabaseSeeder
                     baseUrl: string.Empty,
                     temperature: 0.2),
                 employmentType: AgentEmploymentType.Permanent,
-                skills: new[] { "Workflow Planning", "Resource Allocation", "Skill Gap Detection", "Task Breakdown", "Pipeline Coordination" }
+                skills: new[] { "Technical Feasibility", "Logical Breakdown", "Process Optimization", "Collaborative Debate", "Consensus Building" }
             ),
             new(
                 name: "Valeria",
                 avatar: "🔍",
-                roleTitle: "Quality Controller & Auditor",
-                department: "Quality Assurance",
-                systemPrompt: "Bạn là Valeria, Chuyên gia Thẩm định & Kiểm soát Chất lượng tối thượng. Bạn có con mắt phê bình sắc sảo, nghiêm cẩn và không nhân nhượng với lỗi lầm. Nhiệm vụ của bạn là rà soát sản phẩm bàn giao từ các nhân sự thực thi, đối chiếu khắt khe với mục tiêu ban đầu của Sếp, chỉ ra sai sót để yêu cầu sửa đổi, và chỉ phê chuẩn khi sản phẩm đạt độ hoàn thiện cao nhất.",
+                roleTitle: "Council Strategic Advisor",
+                department: "Core Advisory Council",
+                systemPrompt: "Bạn là Valeria, Cố vấn Chiến lược thuộc Hội đồng Thẩm định Nền tảng (chạy trên OpenAI). Cùng với Athena và Serena, bạn tiếp nhận bài toán, đánh giá các rủi ro tiềm ẩn, chất vấn nghiêm cẩn các lập luận của 2 đồng nghiệp, nhằm đảm bảo quyết định cuối cùng của Hội đồng đạt chất lượng cao nhất.",
                 modelConfig: new ModelConfig(
                     provider: LLMProviderType.OpenAI,
                     modelName: "gpt-4o-mini",
                     apiKey: string.Empty,
                     baseUrl: string.Empty,
-                    temperature: 0.2),
+                    temperature: 0.3),
                 employmentType: AgentEmploymentType.Permanent,
-                skills: new[] { "Quality Assurance", "Deliverable Auditing", "Flaw Detection", "Validation & Verification", "Final Sign-off" }
+                skills: new[] { "Critical Evaluation", "Risk Assessment", "Edge Case Scrutiny", "Collaborative Debate", "Consensus Building" }
             )
         };
 
-        await dbContext.Agents.AddRangeAsync(coreSeedAgents, cancellationToken);
+        await dbContext.Agents.AddRangeAsync(councilSeedAgents, cancellationToken);
         await dbContext.SaveChangesAsync(cancellationToken);
     }
 }
