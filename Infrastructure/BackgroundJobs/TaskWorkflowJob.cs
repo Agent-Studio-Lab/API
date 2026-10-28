@@ -35,7 +35,7 @@ public sealed class TaskWorkflowJob
         var ticket = await _taskTicketRepository.GetByIdAsync(ticketId, cancellationToken);
         if (ticket is null)
         {
-            _logger.LogWarning("Không tìm thấy TaskTicket với Id: {TicketId}", ticketId);
+            _logger.LogWarning("TaskTicket not found with Id: {TicketId}", ticketId);
             return;
         }
 
@@ -57,85 +57,21 @@ public sealed class TaskWorkflowJob
 
     private async Task ExecuteDebateAndPlanningAsync(TaskTicket ticket, CancellationToken cancellationToken)
     {
-        var analysisAgents = await _agentRepository.GetByDepartmentAsync("Strategy & Analysis", cancellationToken);
-        var planningAgents = await _agentRepository.GetByDepartmentAsync("Operations & Planning", cancellationToken);
+        // --- 1. PHÒNG CHIẾN LƯỢC & PHÂN TÍCH: TRANH LUẬN & PHẢN BIỆN YÊU CẦU ---
+        var requirementSpec = await DebateStrategyCouncilAsync(ticket, cancellationToken);
 
-        var analysisSummary = new List<string>();
-        foreach (var agent in analysisAgents)
-        {
-            var provider = _llmFactory.GetProvider(agent.ModelConfig.Provider);
-            var prompt = $"Yêu cầu từ người dùng:\n\"{ticket.Description}\"\n\nHãy phân tích yêu cầu dưới góc độ chuyên môn của bạn ({agent.RoleTitle}) và nêu rõ mục tiêu cũng như các điểm lưu ý.";
-            var response = await provider.GenerateResponseAsync(agent.ModelConfig, agent.SystemPrompt, prompt, cancellationToken);
+        // --- 2. PHÒNG KẾ HOẠCH & QUY TRÌNH: TRANH LUẬN LẬP PIPELINE & ĐÁNH GIÁ NĂNG LỰC ---
+        var (planningSummary, proposedHiring) = await DebateOperationsPipelineAsync(ticket, requirementSpec, cancellationToken);
 
-            var turn = new DebateTurn(ticket.Id, agent.Id, agent.Name, agent.Avatar, roundNumber: 1, response);
-            ticket.AddDebateTurn(turn);
-            analysisSummary.Add($"{agent.Name} ({agent.RoleTitle}): {response}");
-
-            await _eventPublisher.PublishAsync(
-                OfficeEvent.CreateSpeaking(agent.Name, agent.Avatar, "Phòng Phân tích", TaskPhase.Debating, response),
-                cancellationToken);
-        }
-
-        // --- BƯỚC 2: PHÒNG KẾ HOẠCH (OPERATIONS & PLANNING) LẬP KẾ HOẠCH & ĐÁNH GIÁ NGUỒN LỰC ---
-        var combinedAnalysis = string.Join("\n\n", analysisSummary);
-        HiringProposal? proposedHiring = null;
-
-        foreach (var planner in planningAgents)
-        {
-            var provider = _llmFactory.GetProvider(planner.ModelConfig.Provider);
-            var prompt = $$"""
-                Bản phân tích từ Phòng Phân tích:
-                {{combinedAnalysis}}
-
-                Dưới góc độ chuyên môn ({{planner.RoleTitle}}), hãy đưa ra phương án thực hiện và trả lời dưới định dạng JSON sau:
-                {
-                  "ProposedPrimaryExecutor": "Tên Agent thực hiện chính hoặc cần tuyển mới",
-                  "ProposedTester": "Tên Agent kiểm thử/thẩm định",
-                  "NeedsHiring": true/false,
-                  "MissingRole": "Tên chức danh nếu cần tuyển (hoặc null)",
-                  "MissingSkill": "Kỹ năng cần nếu cần tuyển (hoặc null)",
-                  "Reasoning": "Lý do và kế hoạch ngắn gọn"
-                }
-                """;
-
-            var response = await provider.GenerateResponseAsync(planner.ModelConfig, planner.SystemPrompt, prompt, cancellationToken);
-            ticket.AddDebateTurn(new DebateTurn(ticket.Id, planner.Id, planner.Name, planner.Avatar, roundNumber: 2, response));
-
-            await _eventPublisher.PublishAsync(
-                OfficeEvent.CreateSpeaking(planner.Name, planner.Avatar, "Phòng Kế hoạch", TaskPhase.Debating, response),
-                cancellationToken);
-
-            try
-            {
-                var cleanJson = ExtractJson(response);
-                using var doc = JsonDocument.Parse(cleanJson);
-                var root = doc.RootElement;
-                var needsHiring = root.GetProperty("NeedsHiring").GetBoolean();
-
-                if (needsHiring && proposedHiring is null)
-                {
-                    var missingRole = root.GetProperty("MissingRole").GetString() ?? "Specialist";
-                    var missingSkill = root.GetProperty("MissingSkill").GetString() ?? "Specialized Skill";
-                    var reasoning = root.GetProperty("Reasoning").GetString() ?? "Cần chuyên môn sâu.";
-
-                    proposedHiring = new HiringProposal(missingRole, "Project Operations", missingSkill, reasoning);
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning("Không parse được JSON vote từ {PlannerName}: {Error}", planner.Name, ex.Message);
-            }
-        }
-
-        // --- BƯỚC 3: PHÒNG TUYỂN DỤNG & THẨM ĐỊNH AI (TALENT & MODEL INTELLIGENCE) ---
-        // Nếu phát hiện lỗ hổng kỹ năng, phòng Tuyển dụng AI sẽ khảo sát benchmark, thiết kế system prompt và tối ưu chi phí
+        // --- 3. PHÒNG TUYỂN DỤNG & THẨM ĐỊNH AI: TRANH LUẬN TỐI ƯU HÓA MODEL & SYSTEM PROMPT ---
         if (proposedHiring is not null)
         {
-            proposedHiring = await ExecuteTalentIntelligenceEvaluationAsync(ticket, proposedHiring, combinedAnalysis, cancellationToken);
+            proposedHiring = await DebateTalentIntelligenceAsync(ticket, proposedHiring, requirementSpec, planningSummary, cancellationToken);
         }
 
-        // --- BƯỚC 4: TỔNG HỢP KẾ HOẠCH ĐỒNG THUẬN (CONSENSUS PLAN) ---
+        // --- 4. TỔNG HỢP KẾ HOẠCH ĐỒNG THUẬN (CONSENSUS PLAN) ---
         var reviewAgents = await _agentRepository.GetByDepartmentAsync("Quality Control & Review", cancellationToken);
+        var analysisAgents = await _agentRepository.GetByDepartmentAsync("Strategy & Analysis", cancellationToken);
         var defaultTester = reviewAgents.FirstOrDefault();
         var defaultExecutor = analysisAgents.FirstOrDefault();
 
@@ -144,7 +80,7 @@ public sealed class TaskWorkflowJob
             PrimaryExecutorName: defaultExecutor?.Name ?? "Athena",
             TesterId: defaultTester?.Id ?? Guid.Empty,
             TesterName: defaultTester?.Name ?? "Valeria",
-            ExecutionPlanSummary: "Kế hoạch đã được thẩm định đồng thuận bởi các phòng ban chuyên môn.",
+            ExecutionPlanSummary: $"Kế hoạch thực thi đồng thuận: {planningSummary}",
             RequiresHiring: proposedHiring is not null,
             ProposedHire: proposedHiring);
 
@@ -166,9 +102,298 @@ public sealed class TaskWorkflowJob
         }
         else
         {
-            // Không cần tuyển người -> Tự động chạy tiếp khâu thực thi
+            // Không cần tuyển người -> Tự động chuyển tiếp sang khâu thực thi
             await ProcessTaskStepAsync(ticket.Id, cancellationToken);
         }
+    }
+
+    private async Task<string> DebateStrategyCouncilAsync(TaskTicket ticket, CancellationToken cancellationToken)
+    {
+        var agents = await _agentRepository.GetByDepartmentAsync("Strategy & Analysis", cancellationToken);
+        var athena = agents.FirstOrDefault(a => a.Name == "Athena") ?? agents.ElementAtOrDefault(0);
+        var freya = agents.FirstOrDefault(a => a.Name == "Freya") ?? agents.ElementAtOrDefault(1);
+        var hera = agents.FirstOrDefault(a => a.Name == "Hera") ?? agents.ElementAtOrDefault(2);
+
+        if (athena is null || freya is null || hera is null)
+        {
+            return ticket.Description;
+        }
+
+        // --- LƯỢT 1: ATHENA KHỞI XƯỚNG ĐỀ XUẤT BAN ĐẦU (THESIS) ---
+        var athenaProvider = _llmFactory.GetProvider(athena.ModelConfig.Provider);
+        var athenaPrompt = $$"""
+            Yêu cầu ban đầu từ Người dùng:
+            "{{ticket.Description}}"
+
+            Dưới vai trò {{athena.RoleTitle}}, hãy đưa ra bản đề xuất phân tích ban đầu (Initial Proposal):
+            - Xác định mục tiêu cốt lõi và phạm vi bao quát của bài toán.
+            - Nêu rõ các giá trị trọng tâm cần đạt được.
+            Hãy trình bày rõ ràng để đồng nghiệp Freya (Logical Analyst) và Hera (Critical Analyst) tiến hành mổ xẻ và phản biện.
+            """;
+        var athenaResponse = await athenaProvider.GenerateResponseAsync(athena.ModelConfig, athena.SystemPrompt, athenaPrompt, cancellationToken);
+        ticket.AddDebateTurn(new DebateTurn(ticket.Id, athena.Id, athena.Name, athena.Avatar, roundNumber: 1, athenaResponse));
+
+        await _eventPublisher.PublishAsync(
+            OfficeEvent.CreateSpeaking(athena.Name, athena.Avatar, freya.Name, TaskPhase.Debating, athenaResponse),
+            cancellationToken);
+
+        // --- LƯỢT 2: FREYA MỔ XẺ & PHẢN BIỆN LOGIC (ANTITHESIS) ---
+        var freyaProvider = _llmFactory.GetProvider(freya.ModelConfig.Provider);
+        var freyaPrompt = $$"""
+            Yêu cầu ban đầu từ Người dùng:
+            "{{ticket.Description}}"
+
+            Đề xuất phân tích ban đầu từ Athena:
+            "{{athenaResponse}}"
+
+            Dưới vai trò {{freya.RoleTitle}}, bạn hãy đọc kỹ đề xuất của Athena, trực tiếp phản biện và chỉ ra:
+            - Những điều kiện ràng buộc kỹ thuật hoặc logic còn bị bỏ sót.
+            - Các kịch bản ngoại lệ (edge cases) hoặc dữ liệu mâu thuẫn mà Athena chưa bao quát.
+            - Đưa ra các câu hỏi chất vấn để cùng Hera giải quyết.
+            """;
+        var freyaResponse = await freyaProvider.GenerateResponseAsync(freya.ModelConfig, freya.SystemPrompt, freyaPrompt, cancellationToken);
+        ticket.AddDebateTurn(new DebateTurn(ticket.Id, freya.Id, freya.Name, freya.Avatar, roundNumber: 1, freyaResponse));
+
+        await _eventPublisher.PublishAsync(
+            OfficeEvent.CreateSpeaking(freya.Name, freya.Avatar, hera.Name, TaskPhase.Debating, freyaResponse),
+            cancellationToken);
+
+        // --- LƯỢT 3: HERA PHẢN BIỆN GIẢ ĐỊNH & DUNG HÒA ĐỒNG THUẬN (SYNTHESIS) ---
+        var heraProvider = _llmFactory.GetProvider(hera.ModelConfig.Provider);
+        var heraPrompt = $$"""
+            Yêu cầu ban đầu từ Người dùng:
+            "{{ticket.Description}}"
+
+            Cuộc tranh luận giữa Athena và Freya:
+            [Athena]: {{athenaResponse}}
+            [Freya]: {{freyaResponse}}
+
+            Dưới vai trò {{hera.RoleTitle}}, bạn hãy chất vấn các giả định của cả Athena và Freya, dung hòa các điểm mâu thuẫn và đúc kết thành Bản Phân tích Yêu cầu Toàn diện & Đồng thuận (Consensus Requirement Specification) gồm:
+            1. Mục tiêu cốt lõi đã làm rõ.
+            2. Các ràng buộc logic và tiêu chuẩn kỹ thuật bắt buộc.
+            3. Tiêu chí nghiệm thu đầu ra rõ ràng cho các phòng ban tiếp theo.
+            """;
+        var heraResponse = await heraProvider.GenerateResponseAsync(hera.ModelConfig, hera.SystemPrompt, heraPrompt, cancellationToken);
+        ticket.AddDebateTurn(new DebateTurn(ticket.Id, hera.Id, hera.Name, hera.Avatar, roundNumber: 1, heraResponse));
+
+        await _eventPublisher.PublishAsync(
+            OfficeEvent.CreateSpeaking(hera.Name, hera.Avatar, athena.Name, TaskPhase.Debating, heraResponse),
+            cancellationToken);
+
+        // Athena xác nhận đồng thuận và chuyển giao
+        await _eventPublisher.PublishAsync(
+            OfficeEvent.CreateSpeaking(athena.Name, athena.Avatar, "Serena", TaskPhase.Debating,
+                "Tôi đã tiếp thu toàn bộ phản biện của Freya và Hera. Hội đồng Phân tích chính thức đồng thuận bàn giao bản yêu cầu kỹ thuật sang Phòng Kế hoạch!"),
+            cancellationToken);
+
+        return heraResponse;
+    }
+
+    private async Task<(string PlanningSummary, HiringProposal? ProposedHiring)> DebateOperationsPipelineAsync(
+        TaskTicket ticket,
+        string requirementSpec,
+        CancellationToken cancellationToken)
+    {
+        var agents = await _agentRepository.GetByDepartmentAsync("Operations & Planning", cancellationToken);
+        var serena = agents.FirstOrDefault(a => a.Name == "Serena") ?? agents.ElementAtOrDefault(0);
+        var themis = agents.FirstOrDefault(a => a.Name == "Themis") ?? agents.ElementAtOrDefault(1);
+        var minerva = agents.FirstOrDefault(a => a.Name == "Minerva") ?? agents.ElementAtOrDefault(2);
+
+        if (serena is null || themis is null || minerva is null)
+        {
+            return ("Quy trình thực thi tiêu chuẩn.", null);
+        }
+
+        // --- LƯỢT 1: SERENA ĐỀ XUẤT PIPELINE TUẦN TỰ (THESIS) ---
+        var serenaProvider = _llmFactory.GetProvider(serena.ModelConfig.Provider);
+        var serenaPrompt = $$"""
+            Bản phân tích yêu cầu đã thống nhất từ Phòng Phân tích:
+            {{requirementSpec}}
+
+            Dưới vai trò {{serena.RoleTitle}}, hãy chuyển hóa bản yêu cầu trên thành quy trình thực hiện tuần tự (Workflow Pipeline):
+            - Phân rã bài toán thành các mốc thực hiện (Milestones).
+            - Xác định thứ tự các bước bàn giao để Themis và Minerva phản biện nguồn lực.
+            """;
+        var serenaResponse = await serenaProvider.GenerateResponseAsync(serena.ModelConfig, serena.SystemPrompt, serenaPrompt, cancellationToken);
+        ticket.AddDebateTurn(new DebateTurn(ticket.Id, serena.Id, serena.Name, serena.Avatar, roundNumber: 2, serenaResponse));
+
+        await _eventPublisher.PublishAsync(
+            OfficeEvent.CreateSpeaking(serena.Name, serena.Avatar, themis.Name, TaskPhase.Debating, serenaResponse),
+            cancellationToken);
+
+        // --- LƯỢT 2: THEMIS RÀ SOÁT NĂNG LỰC & PHÁT HIỆN LỖ HỔNG KỸ NĂNG (ANTITHESIS) ---
+        var themisProvider = _llmFactory.GetProvider(themis.ModelConfig.Provider);
+        var themisPrompt = $$"""
+            Quy trình tuần tự do Serena đề xuất:
+            {{serenaResponse}}
+
+            Dưới vai trò {{themis.RoleTitle}}, hãy rà soát kỹ năng cần thiết cho từng mắt xích quy trình:
+            - Đánh giá xem 12 nhân sự hạt nhân của văn phòng có thể tự thực hiện tối ưu hay không.
+            - Nếu có mắt xích đòi hỏi kỹ năng chuyên môn sâu mà văn phòng thiếu, hãy chỉ rõ vai trò cần tuyển và lý do để Minerva và Hội đồng Kế hoạch thống nhất yêu cầu Phòng Tuyển dụng AI khảo sát.
+            """;
+        var themisResponse = await themisProvider.GenerateResponseAsync(themis.ModelConfig, themis.SystemPrompt, themisPrompt, cancellationToken);
+        ticket.AddDebateTurn(new DebateTurn(ticket.Id, themis.Id, themis.Name, themis.Avatar, roundNumber: 2, themisResponse));
+
+        await _eventPublisher.PublishAsync(
+            OfficeEvent.CreateSpeaking(themis.Name, themis.Avatar, minerva.Name, TaskPhase.Debating, themisResponse),
+            cancellationToken);
+
+        // --- LƯỢT 3: MINERVA TỐI ƯU HÓA QUY TRÌNH & CHỐT ĐỀ XUẤT NGUỒN LỰC (SYNTHESIS) ---
+        var minervaProvider = _llmFactory.GetProvider(minerva.ModelConfig.Provider);
+        var minervaPrompt = $$"""
+            Cuộc thảo luận quy trình giữa Serena và Themis:
+            [Serena]: {{serenaResponse}}
+            [Themis]: {{themisResponse}}
+
+            Dưới vai trò {{minerva.RoleTitle}}, hãy phản biện và tối ưu hóa tính khả thi của quy trình tổng thể. Trả lời dưới định dạng JSON sau:
+            {
+              "PipelineSummary": "Tóm tắt quy trình thực hiện tuần tự",
+              "NeedsHiring": true/false,
+              "MissingRole": "Tên chức danh chuyên môn nếu cần tuyển (hoặc null)",
+              "MissingSkill": "Kỹ năng chuyên môn cụ thể (hoặc null)",
+              "Reasoning": "Lý do vì sao quy trình cần kỹ năng này"
+            }
+            """;
+        var minervaResponse = await minervaProvider.GenerateResponseAsync(minerva.ModelConfig, minerva.SystemPrompt, minervaPrompt, cancellationToken);
+        ticket.AddDebateTurn(new DebateTurn(ticket.Id, minerva.Id, minerva.Name, minerva.Avatar, roundNumber: 2, minervaResponse));
+
+        await _eventPublisher.PublishAsync(
+            OfficeEvent.CreateSpeaking(minerva.Name, minerva.Avatar, serena.Name, TaskPhase.Debating, minervaResponse),
+            cancellationToken);
+
+        var pipelineSummary = "Quy trình thực thi đã được tối ưu hóa.";
+        HiringProposal? proposedHiring = null;
+
+        try
+        {
+            var cleanJson = ExtractJson(minervaResponse);
+            using var doc = JsonDocument.Parse(cleanJson);
+            var root = doc.RootElement;
+
+            if (root.TryGetProperty("PipelineSummary", out var pProp) && pProp.GetString() is { } p)
+            {
+                pipelineSummary = p;
+            }
+
+            var needsHiring = root.TryGetProperty("NeedsHiring", out var nh) && nh.GetBoolean();
+            if (needsHiring)
+            {
+                var role = root.TryGetProperty("MissingRole", out var r) ? r.GetString() ?? "Specialist" : "Specialist";
+                var skill = root.TryGetProperty("MissingSkill", out var s) ? s.GetString() ?? "Domain Specialization" : "Domain Specialization";
+                var reason = root.TryGetProperty("Reasoning", out var re) ? re.GetString() ?? "Cần năng lực chuyên môn sâu." : "Cần năng lực chuyên môn sâu.";
+
+                proposedHiring = new HiringProposal(role, "Project Operations", skill, reason);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning("Không parse được JSON quy trình từ Minerva: {Error}", ex.Message);
+        }
+
+        return (pipelineSummary, proposedHiring);
+    }
+
+    private async Task<HiringProposal> DebateTalentIntelligenceAsync(
+        TaskTicket ticket,
+        HiringProposal rawProposal,
+        string requirementSpec,
+        string pipelinePlan,
+        CancellationToken cancellationToken)
+    {
+        var agents = await _agentRepository.GetByDepartmentAsync("Talent & Model Intelligence", cancellationToken);
+        var iris = agents.FirstOrDefault(a => a.Name == "Iris") ?? agents.ElementAtOrDefault(0);
+        var clio = agents.FirstOrDefault(a => a.Name == "Clio") ?? agents.ElementAtOrDefault(1);
+        var selene = agents.FirstOrDefault(a => a.Name == "Selene") ?? agents.ElementAtOrDefault(2);
+
+        if (iris is null || clio is null || selene is null)
+        {
+            return rawProposal;
+        }
+
+        // --- LƯỢT 1: IRIS PHÂN TÍCH BENCHMARK CÁC MODEL AI (THESIS) ---
+        var irisProvider = _llmFactory.GetProvider(iris.ModelConfig.Provider);
+        var irisPrompt = $$"""
+            Yêu cầu tuyển dụng từ Phòng Kế hoạch:
+            - Vai trò: {{rawProposal.RoleTitle}}
+            - Kỹ năng cần có: {{rawProposal.RequiredSkill}}
+            - Ngữ cảnh bài toán: {{requirementSpec}}
+
+            Dưới vai trò {{iris.RoleTitle}}, bạn hãy so sánh và mổ xẻ benchmark kỹ thuật của các model AI hàng đầu (OpenAI GPT-4o, Anthropic Claude 3.5 Sonnet, DeepSeek-R1, Google Gemini 1.5, Groq Llama 3.3). Đề xuất model nào là tối ưu nhất cho kỹ năng này và nêu rõ lý do kỹ thuật để Clio và Selene cùng thảo luận.
+            """;
+        var irisResponse = await irisProvider.GenerateResponseAsync(iris.ModelConfig, iris.SystemPrompt, irisPrompt, cancellationToken);
+        ticket.AddDebateTurn(new DebateTurn(ticket.Id, iris.Id, iris.Name, iris.Avatar, roundNumber: 3, irisResponse));
+
+        await _eventPublisher.PublishAsync(
+            OfficeEvent.CreateSpeaking(iris.Name, iris.Avatar, clio.Name, TaskPhase.Debating, irisResponse),
+            cancellationToken);
+
+        // --- LƯỢT 2: CLIO THIẾT KẾ SYSTEM PROMPT & GIỚI HẠN VAI TRÒ (ANTITHESIS) ---
+        var clioProvider = _llmFactory.GetProvider(clio.ModelConfig.Provider);
+        var clioPrompt = $$"""
+            Đề xuất lựa chọn model AI từ Iris:
+            {{irisResponse}}
+
+            Dưới vai trò {{clio.RoleTitle}}, hãy thiết kế System Prompt và định hình vai trò chuyên sâu cho nhân sự mới:
+            - Thiết lập persona chuyên nghiệp, quy chuẩn thực thi và các ràng buộc nghiệp vụ không được vượt qua.
+            - Trình bày để Selene phản biện về chi phí và tính khả thi vận hành.
+            """;
+        var clioResponse = await clioProvider.GenerateResponseAsync(clio.ModelConfig, clio.SystemPrompt, clioPrompt, cancellationToken);
+        ticket.AddDebateTurn(new DebateTurn(ticket.Id, clio.Id, clio.Name, clio.Avatar, roundNumber: 3, clioResponse));
+
+        await _eventPublisher.PublishAsync(
+            OfficeEvent.CreateSpeaking(clio.Name, clio.Avatar, selene.Name, TaskPhase.Debating, clioResponse),
+            cancellationToken);
+
+        // --- LƯỢT 3: SELENE CÂN ĐỐI CHI PHÍ/HIỆU NĂNG & CHỐT ĐỀ XUẤT TUYỂN DỤNG (SYNTHESIS) ---
+        var seleneProvider = _llmFactory.GetProvider(selene.ModelConfig.Provider);
+        var selenePrompt = $$"""
+            Tranh luận giữa Iris và Clio:
+            [Iris]: {{irisResponse}}
+            [Clio]: {{clioResponse}}
+
+            Dưới vai trò {{selene.RoleTitle}}, bạn hãy cân đối giữa chất lượng suy luận, chi phí token và tốc độ phản hồi (latency). Đưa ra quyết định đồng thuận cuối cùng dưới định dạng JSON sau:
+            {
+              "RecommendedProvider": "Tên nhà cung cấp (DeepSeek/Anthropic/OpenAI/Gemini/Groq/Ollama)",
+              "RecommendedModel": "Tên Model chuẩn xác",
+              "ModelBenchmarkRationale": "Lý giải ngắn gọn căn cứ khoa học vì sao chọn model này",
+              "DraftSystemPrompt": "Bản System Prompt hoàn chỉnh cho nhân sự mới"
+            }
+            """;
+        var seleneResponse = await seleneProvider.GenerateResponseAsync(selene.ModelConfig, selene.SystemPrompt, selenePrompt, cancellationToken);
+        ticket.AddDebateTurn(new DebateTurn(ticket.Id, selene.Id, selene.Name, selene.Avatar, roundNumber: 3, seleneResponse));
+
+        await _eventPublisher.PublishAsync(
+            OfficeEvent.CreateSpeaking(selene.Name, selene.Avatar, "User", TaskPhase.Debating, seleneResponse),
+            cancellationToken);
+
+        string provider = "DeepSeek";
+        string model = "deepseek-reasoner";
+        string rationale = "Vượt trội về khả năng suy luận logic chuyên sâu với chi phí tối ưu.";
+        string draftPrompt = $"Bạn là chuyên gia {rawProposal.RoleTitle}. Bạn có trách nhiệm thực hiện chính xác các yêu cầu chuyên môn: {rawProposal.RequiredSkill}.";
+
+        try
+        {
+            var cleanJson = ExtractJson(seleneResponse);
+            using var doc = JsonDocument.Parse(cleanJson);
+            var root = doc.RootElement;
+
+            if (root.TryGetProperty("RecommendedProvider", out var pProp) && pProp.GetString() is { } p) provider = p;
+            if (root.TryGetProperty("RecommendedModel", out var mProp) && mProp.GetString() is { } m) model = m;
+            if (root.TryGetProperty("ModelBenchmarkRationale", out var rProp) && rProp.GetString() is { } r) rationale = r;
+            if (root.TryGetProperty("DraftSystemPrompt", out var sProp) && sProp.GetString() is { } s) draftPrompt = s;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning("Không parse được JSON từ Selene: {Error}", ex.Message);
+        }
+
+        return rawProposal with
+        {
+            RecommendedProvider = provider,
+            RecommendedModel = model,
+            ModelBenchmarkRationale = rationale,
+            DraftSystemPrompt = draftPrompt
+        };
     }
 
     private async Task ExecuteImplementationAndReviewAsync(TaskTicket ticket, CancellationToken cancellationToken)
@@ -181,15 +406,18 @@ public sealed class TaskWorkflowJob
 
         if (executor is null)
         {
-            _logger.LogError("Không tìm thấy Executor cho TaskTicket {TicketId}", ticket.Id);
+            _logger.LogError("Executor not found for TaskTicket {TicketId}", ticket.Id);
             return;
         }
 
         // --- BƯỚC 1: EXECUTOR THỰC HIỆN SẢN PHẨM ---
         var executorProvider = _llmFactory.GetProvider(executor.ModelConfig.Provider);
         var execPrompt = $"""
-            Yêu cầu ban đầu từ người dùng:
+            Yêu cầu ban đầu từ Người dùng:
             "{ticket.Description}"
+
+            Kế hoạch thực hiện:
+            "{ticket.FinalPlan?.ExecutionPlanSummary}"
 
             Hãy bắt tay vào triển khai và hoàn thành sản phẩm hoàn chỉnh nhất theo đúng vai trò chuyên môn của bạn ({executor.RoleTitle}).
             """;
@@ -205,135 +433,89 @@ public sealed class TaskWorkflowJob
 
         ticket.AddDeliverable(deliverable);
 
+        var valeria = reviewAgents.FirstOrDefault(a => a.Name == "Valeria") ?? reviewAgents.ElementAtOrDefault(0);
+        var astrid = reviewAgents.FirstOrDefault(a => a.Name == "Astrid") ?? reviewAgents.ElementAtOrDefault(1);
+        var diana = reviewAgents.FirstOrDefault(a => a.Name == "Diana") ?? reviewAgents.ElementAtOrDefault(2);
+
         await _eventPublisher.PublishAsync(
-            OfficeEvent.CreateSpeaking(executor.Name, executor.Avatar, "Phòng Thẩm định", TaskPhase.Executing,
-                "Tôi đã hoàn thiện xong sản phẩm theo yêu cầu. Kính mời Phòng Thẩm định & Kiểm soát Chất lượng tiến hành rà soát!"),
+            OfficeEvent.CreateSpeaking(executor.Name, executor.Avatar, valeria?.Name ?? "Valeria", TaskPhase.Executing,
+                "Tôi đã hoàn thiện xong sản phẩm theo yêu cầu. Kính mời Hội đồng Thẩm định & Kiểm soát Chất lượng tiến hành rà soát phản biện!"),
             cancellationToken);
 
         ticket.StartTesting();
-        var reviewPassed = true;
 
-        foreach (var reviewer in reviewAgents)
-        {
-            var reviewerProvider = _llmFactory.GetProvider(reviewer.ModelConfig.Provider);
-            var reviewPrompt = $"""
-                Yêu cầu của người dùng:
-                "{ticket.Description}"
-
-                Sản phẩm nộp về từ {executor.Name}:
-                {deliverableContent}
-
-                Dưới góc độ chuyên môn ({reviewer.RoleTitle}), hãy rà soát kỹ lưỡng sản phẩm này và nhận xét chi tiết.
-                """;
-
-            var reviewFeedback = await reviewerProvider.GenerateResponseAsync(reviewer.ModelConfig, reviewer.SystemPrompt, reviewPrompt, cancellationToken);
-
-            var turn = new ExecutionTurn(
-                ticket.Id,
-                loopNumber: ticket.CurrentFeedbackLoop,
-                speakerAgentId: reviewer.Id,
-                speakerName: reviewer.Name,
-                speakerRoleTitle: reviewer.RoleTitle,
-                content: reviewFeedback,
-                isIssueFound: false,
-                issueDetails: null);
-
-            ticket.RecordExecutionTurn(turn);
-
-            await _eventPublisher.PublishAsync(
-                OfficeEvent.CreateSpeaking(reviewer.Name, reviewer.Avatar, executor.Name, TaskPhase.TestingAndReviewing, reviewFeedback),
-                cancellationToken);
-        }
-
-        // --- BƯỚC 3: NGHIỆM THU & CHỜ PHÊ DUYỆT TỪ NGƯỜI DÙNG (USER APPROVAL) ---
-        if (reviewPassed)
+        if (valeria is null || astrid is null || diana is null)
         {
             ticket.MarkWaitingFinalApproval();
             await _taskTicketRepository.UpdateAsync(ticket, cancellationToken);
-
-            await _eventPublisher.PublishAsync(
-                OfficeEventExtensions.CreateWaitingFinalApproval(ticket.Id, ticket.Title),
-                cancellationToken);
-        }
-    }
-
-    private async Task<HiringProposal> ExecuteTalentIntelligenceEvaluationAsync(
-        TaskTicket ticket,
-        HiringProposal rawProposal,
-        string taskAnalysis,
-        CancellationToken cancellationToken)
-    {
-        var talentAgents = await _agentRepository.GetByDepartmentAsync("Talent & Model Intelligence", cancellationToken);
-        if (talentAgents.Count == 0)
-        {
-            return rawProposal;
+            return;
         }
 
-        string recommendedProvider = "DeepSeek";
-        string recommendedModel = "deepseek-reasoner";
-        string rationale = "Vượt trội về khả năng suy luận logic chuyên sâu với chi phí tối ưu.";
-        string draftPrompt = $"Bạn là chuyên gia {rawProposal.RoleTitle}. Bạn có trách nhiệm thực hiện chính xác các yêu cầu chuyên môn: {rawProposal.RequiredSkill}.";
+        // --- BƯỚC 2: HỘI ĐỒNG THẨM ĐỊNH TRANH LUẬN & KIỂM ĐỊNH SẢN PHẨM ---
+        // 1. Valeria kiểm toán tiêu chuẩn và đối chiếu yêu cầu ban đầu
+        var valeriaProvider = _llmFactory.GetProvider(valeria.ModelConfig.Provider);
+        var valeriaPrompt = $"""
+            Yêu cầu ban đầu từ Người dùng:
+            "{ticket.Description}"
 
-        foreach (var agent in talentAgents)
-        {
-            var provider = _llmFactory.GetProvider(agent.ModelConfig.Provider);
-            var prompt = $$"""
-                Bản phân tích bài toán từ Phòng Phân tích:
-                {{taskAnalysis}}
+            Sản phẩm bàn giao từ {executor.Name}:
+            {deliverableContent}
 
-                Phòng Kế hoạch yêu cầu tuyển dụng nhân sự cho vai trò: {{rawProposal.RoleTitle}}
-                Kỹ năng chuyên môn cần có: {{rawProposal.RequiredSkill}}
-                Lý do yêu cầu: {{rawProposal.Justification}}
+            Dưới vai trò {valeria.RoleTitle}, hãy kiểm toán nghiêm ngặt sản phẩm đối chiếu với tiêu chí ban đầu, chỉ ra những điểm đạt và những lỗi hoặc khiếm khuyết kỹ thuật để Astrid và Diana cùng kiểm tra.
+            """;
+        var valeriaFeedback = await valeriaProvider.GenerateResponseAsync(valeria.ModelConfig, valeria.SystemPrompt, valeriaPrompt, cancellationToken);
+        ticket.RecordExecutionTurn(new ExecutionTurn(ticket.Id, ticket.CurrentFeedbackLoop, valeria.Id, valeria.Name, valeria.RoleTitle, valeriaFeedback, false, null));
 
-                Dưới góc độ chuyên môn của bạn ({{agent.RoleTitle}}), hãy đánh giá và phản hồi:
-                - Nếu bạn là Iris (Benchmark Evaluator): Phân tích model AI nào là tối ưu nhất cho kỹ năng này.
-                - Nếu bạn là Clio (Prompt Architect): Soạn thảo system prompt chuyên sâu nhất cho vai trò này.
-                - Nếu bạn là Selene (Cost & Efficiency): Cân đối chi phí, tốc độ và đưa ra JSON đề xuất hoàn chỉnh sau:
-                {
-                  "RecommendedProvider": "Tên Provider (OpenAI/Anthropic/DeepSeek/Gemini/Groq/Ollama)",
-                  "RecommendedModel": "Tên Model chính xác",
-                  "ModelBenchmarkRationale": "Lý do chọn model này dựa trên năng lực vượt trội",
-                  "DraftSystemPrompt": "System Prompt hoàn chỉnh cho nhân sự mới"
-                }
-                """;
+        await _eventPublisher.PublishAsync(
+            OfficeEvent.CreateSpeaking(valeria.Name, valeria.Avatar, astrid.Name, TaskPhase.TestingAndReviewing, valeriaFeedback),
+            cancellationToken);
 
-            var response = await provider.GenerateResponseAsync(agent.ModelConfig, agent.SystemPrompt, prompt, cancellationToken);
-            ticket.AddDebateTurn(new DebateTurn(ticket.Id, agent.Id, agent.Name, agent.Avatar, roundNumber: 3, response));
+        // 2. Astrid kiểm tra độ bền vững, dữ liệu biên và edge cases
+        var astridProvider = _llmFactory.GetProvider(astrid.ModelConfig.Provider);
+        var astridPrompt = $"""
+            Sản phẩm của {executor.Name}:
+            {deliverableContent}
 
-            await _eventPublisher.PublishAsync(
-                OfficeEvent.CreateSpeaking(agent.Name, agent.Avatar, "Phòng Tuyển dụng AI", TaskPhase.Debating, response),
-                cancellationToken);
+            Đánh giá ban đầu từ Trưởng nhóm Thẩm định Valeria:
+            {valeriaFeedback}
 
-            try
-            {
-                var cleanJson = ExtractJson(response);
-                if (!string.IsNullOrWhiteSpace(cleanJson) && cleanJson.Contains("RecommendedModel"))
-                {
-                    using var doc = JsonDocument.Parse(cleanJson);
-                    var root = doc.RootElement;
-                    if (root.TryGetProperty("RecommendedProvider", out var pProp) && pProp.GetString() is { } p)
-                        recommendedProvider = p;
-                    if (root.TryGetProperty("RecommendedModel", out var mProp) && mProp.GetString() is { } m)
-                        recommendedModel = m;
-                    if (root.TryGetProperty("ModelBenchmarkRationale", out var rProp) && rProp.GetString() is { } r)
-                        rationale = r;
-                    if (root.TryGetProperty("DraftSystemPrompt", out var sProp) && sProp.GetString() is { } s)
-                        draftPrompt = s;
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning("Không parse được JSON từ {AgentName}: {Error}", agent.Name, ex.Message);
-            }
-        }
+            Dưới vai trò {astrid.RoleTitle}, bạn hãy phản biện và soi xét độ bền vững (robustness), các tình huống dữ liệu biên, tính ổn định và bảo mật của sản phẩm.
+            """;
+        var astridFeedback = await astridProvider.GenerateResponseAsync(astrid.ModelConfig, astrid.SystemPrompt, astridPrompt, cancellationToken);
+        ticket.RecordExecutionTurn(new ExecutionTurn(ticket.Id, ticket.CurrentFeedbackLoop, astrid.Id, astrid.Name, astrid.RoleTitle, astridFeedback, false, null));
 
-        return rawProposal with
-        {
-            RecommendedProvider = recommendedProvider,
-            RecommendedModel = recommendedModel,
-            ModelBenchmarkRationale = rationale,
-            DraftSystemPrompt = draftPrompt
-        };
+        await _eventPublisher.PublishAsync(
+            OfficeEvent.CreateSpeaking(astrid.Name, astrid.Avatar, diana.Name, TaskPhase.TestingAndReviewing, astridFeedback),
+            cancellationToken);
+
+        // 3. Diana đánh giá trải nghiệm thực tế, tổng hợp kết quả thẩm định
+        var dianaProvider = _llmFactory.GetProvider(diana.ModelConfig.Provider);
+        var dianaPrompt = $"""
+            Sản phẩm từ {executor.Name}:
+            {deliverableContent}
+
+            Ý kiến kiểm toán của Valeria:
+            {valeriaFeedback}
+
+            Ý kiến kiểm tra bền vững của Astrid:
+            {astridFeedback}
+
+            Dưới vai trò {diana.RoleTitle}, bạn hãy đánh giá tính thực tiễn và trải nghiệm người dùng, tổng hợp kết luận cuối cùng của Hội đồng Thẩm định để nghiệm thu sản phẩm.
+            """;
+        var dianaFeedback = await dianaProvider.GenerateResponseAsync(diana.ModelConfig, diana.SystemPrompt, dianaPrompt, cancellationToken);
+        ticket.RecordExecutionTurn(new ExecutionTurn(ticket.Id, ticket.CurrentFeedbackLoop, diana.Id, diana.Name, diana.RoleTitle, dianaFeedback, false, null));
+
+        await _eventPublisher.PublishAsync(
+            OfficeEvent.CreateSpeaking(diana.Name, diana.Avatar, "User", TaskPhase.TestingAndReviewing, dianaFeedback),
+            cancellationToken);
+
+        // --- BƯỚC 3: NGHIỆM THU & CHỜ PHÊ DUYỆT TỪ NGƯỜI DÙNG (USER APPROVAL) ---
+        ticket.MarkWaitingFinalApproval();
+        await _taskTicketRepository.UpdateAsync(ticket, cancellationToken);
+
+        await _eventPublisher.PublishAsync(
+            OfficeEventExtensions.CreateWaitingFinalApproval(ticket.Id, ticket.Title),
+            cancellationToken);
     }
 
     private static string ExtractJson(string text)
