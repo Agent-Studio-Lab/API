@@ -16,8 +16,11 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
-        var dbConnectionString = configuration.GetConnectionString("AgentStudioDb")
-            ?? "Host=localhost;Port=5432;Database=AgentStudio;Username=postgres;Password=postgres";
+        var dbConnectionString = configuration.GetConnectionString("AgentStudioDb");
+        if (string.IsNullOrWhiteSpace(dbConnectionString))
+        {
+            dbConnectionString = "Host=localhost;Port=5432;Database=AgentStudio;Username=postgres;Password=postgres";
+        }
 
         // 1. Persistence & DbContext
         services.AddDbContext<AgentStudioDbContext>(options =>
