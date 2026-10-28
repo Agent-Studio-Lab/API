@@ -1,0 +1,58 @@
+## Visual Studio temporary files, build results, and tools
+## Chuẩn .NET / Visual Studio GitIgnore
+
+# User-specific files
+*.rsuser
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.env
+*.env.local
+appsettings.Development.json
+appsettings.Local.json
+
+# Build results
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+bin/
+obj/
+[Bb]in/
+[Oo]bj/
+[Oo]ut/
+[Ll]og/
+[Ll]ogs/
+*.binlog
+
+# Visual Studio / VS Code cache & options
+.vs/
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# Rider / JetBrains
+.idea/
+*.sln.iml
+
+# Test Results
+[Tt]est[Rr]esult*/
+[Bb]uild[Ll]og.*
+*.trx
+coverage*.json
+coverage*.xml
+
+# Others
+*.tmp
+*.log
+*.cache
+ClientBin/
+~$*
+*~
+thumbs.db
+ehthumbs.db
+Desktop.ini
+.DS_Store
