@@ -4,6 +4,8 @@ using API.Domain.Common;
 using API.Domain.Entities;
 using API.Domain.Enums;
 using API.Domain.Events;
+using API.Infrastructure.BackgroundJobs;
+using Hangfire;
 
 namespace API.Application.Features.Tasks.Commands.ExecuteTask;
 
@@ -12,15 +14,18 @@ public sealed class ExecuteTaskHandler : ICommandHandler<ExecuteTaskCommand, Exe
     private readonly IAgentRepository _agentRepository;
     private readonly ITaskTicketRepository _taskTicketRepository;
     private readonly IOfficeEventPublisher _eventPublisher;
+    private readonly IBackgroundJobClient _backgroundJobClient;
 
     public ExecuteTaskHandler(
         IAgentRepository agentRepository,
         ITaskTicketRepository taskTicketRepository,
-        IOfficeEventPublisher eventPublisher)
+        IOfficeEventPublisher eventPublisher,
+        IBackgroundJobClient backgroundJobClient)
     {
         _agentRepository = agentRepository;
         _taskTicketRepository = taskTicketRepository;
         _eventPublisher = eventPublisher;
+        _backgroundJobClient = backgroundJobClient;
     }
 
     public async Task<Result<ExecuteTaskResponse>> Handle(ExecuteTaskCommand command, CancellationToken cancellationToken)
@@ -50,6 +55,9 @@ public sealed class ExecuteTaskHandler : ICommandHandler<ExecuteTaskCommand, Exe
         await _eventPublisher.PublishAsync(
             OfficeEvent.CreatePhaseChanged(TaskPhase.Debating, $"Đã tiếp nhận nhiệm vụ: '{title}'. Toàn thể nhân sự văn phòng bắt đầu phiên họp bàn tròn tranh luận!"),
             cancellationToken);
+
+        // Kích hoạt Hangfire Background Job chạy quy trình ngầm
+        _backgroundJobClient.Enqueue<TaskWorkflowJob>(job => job.ProcessTaskStepAsync(ticket.Id, CancellationToken.None));
 
         return Result<ExecuteTaskResponse>.Success(new ExecuteTaskResponse(
             ticket.Id,
