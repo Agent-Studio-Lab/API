@@ -10,7 +10,6 @@ public sealed class DebateTurn : Entity
     public string AgentAvatar { get; private set; }
     public int RoundNumber { get; private set; }
     public string Statement { get; private set; }
-    public DateTime SpokenAt { get; private set; }
 
     public DebateTurn(
         Guid taskTicketId,
@@ -27,6 +26,6 @@ public sealed class DebateTurn : Entity
         AgentAvatar = agentAvatar;
         RoundNumber = roundNumber;
         Statement = statement;
-        SpokenAt = Clock.Now;
+        SetCreated(Clock.Now, agentName);
     }
 }

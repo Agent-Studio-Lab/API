@@ -12,7 +12,6 @@ public sealed class ExecutionTurn : Entity
     public string Content { get; private set; }
     public bool IsIssueFound { get; private set; }
     public string? IssueDetails { get; private set; }
-    public DateTime CreatedAtUtc { get; private set; }
 
     public ExecutionTurn(
         Guid taskTicketId,
@@ -33,6 +32,6 @@ public sealed class ExecutionTurn : Entity
         Content = content;
         IsIssueFound = isIssueFound;
         IssueDetails = issueDetails;
-        CreatedAtUtc = Clock.Now;
+        SetCreated(Clock.Now, speakerName);
     }
 }

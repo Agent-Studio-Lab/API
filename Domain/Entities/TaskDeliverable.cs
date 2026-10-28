@@ -9,8 +9,6 @@ public sealed class TaskDeliverable : Entity
     public string ContentType { get; private set; }
     public string Content { get; private set; }
     public Guid CreatedByAgentId { get; private set; }
-    public string CreatedByAgentName { get; private set; }
-    public DateTime CreatedAtUtc { get; private set; }
 
     public TaskDeliverable(
         Guid taskTicketId,
@@ -26,7 +24,6 @@ public sealed class TaskDeliverable : Entity
         ContentType = contentType;
         Content = content;
         CreatedByAgentId = createdByAgentId;
-        CreatedByAgentName = createdByAgentName;
-        CreatedAtUtc = Clock.Now;
+        SetCreated(Clock.Now, createdByAgentName);
     }
 }
